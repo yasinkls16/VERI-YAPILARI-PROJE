@@ -1,51 +1,35 @@
-# VERI-YAPILARI-PROJE
-VERİ YAPILARI PROJE GRUBU 
+# 🗺️ Prosedürel Harita Üretimi (Level Generation) Modülü
 
-# Veri Yapıları Projesi - Ara Rapor 
+Bu branch, **Veri Yapıları ile BSP Ağacı Tabanlı Görüş Alanı ve Çarpışma Tespiti** projesi için dinamik ve rastgele oyun haritaları üretmekle sorumludur.
 
----
+**Sorumlu:** Yiğit Toklu - 032490080
 
-### Ayşegül Karataş 032490082
+## 📌 Modülün Amacı
+Oyunun tekrar oynanabilirliğini artırmak ve takım arkadaşlarımın yazdığı uzamsal algoritmaları (BSP Ağacı, Raycasting, A* Pathfinding) farklı ve öngörülemeyen senaryolarda test edebilmek için prosedürel bir harita üretim motoru geliştirilmiştir. 
 
-## Teknik Altyapı ve Versiyonlama
-- **Programlama Dili:** JavaScript (ECMAScript 6+)
-- **Grafik Motoru:** HTML5 Canvas API
-- **Çalıştırma Gereksinimi:** Modern bir web tarayıcısı (Chrome, Edge veya Firefox). Herhangi bir derleyici kurulumuna gerek duymaz.
+Bu modül sadece görsel bir harita oluşturmakla kalmaz; aynı zamanda uzamsal algoritmaların ihtiyaç duyduğu karmaşık matematiksel veri setlerini otomatik olarak hazırlar.
 
+## ⚙️ Teknik Detaylar ve Algoritmalar
 
-## Oyun Motoru ve Fizik Çekirdeği
-Oyunun kalbi olan "Game Loop" yapısı kurulmuştur. Bu modül; karakterlerin koordinat sistemini, hareket kabiliyetlerini ve ekran sınırları içindeki fiziksel kurallarını yönetmektedir.
+### 1. Rastgele Labirent Üretimi (Recursive Backtracking)
+Harita üretimi için **Derinlik Öncelikli Arama (DFS)** tabanlı *Recursive Backtracking* algoritması kullanılmıştır.
+* Algoritma, belirlenen boyutlardaki bir matrisi (grid) duvarlarla (1) doldurur.
+* Rastgele yönler seçerek yürünebilir yollar kazar.
+* Çıkmaz sokaklara geldiğinde geri dönerek (backtrack) tüm haritayı tek parça, oynanabilir bir alana çevirir.
 
-- **Klavye Giriş Yönetimi:** Kullanıcının WASD veya Ok tuşları ile karakteri eşzamanlı olarak kontrol edebilmesi sağlanmıştır.
-- **Sınır Kontrolü:** Karakterin oyun alanı (Canvas) dışına çıkmasını engelleyen temel fiziksel bariyerler eklenmiştir.
+### 2. Geometrik Veri Dönüştürücü (Data Parser)
+Optik Mühendisi (Raycasting) ve Uzamsal Mimar'ın (BSP Ağacı) ihtiyaç duyduğu "Duvar Çizgileri" formatını sağlamak için özel bir dönüştürücü (parser) yazılmıştır.
+* Sistem 0 ve 1'lerden oluşan grid matrisini tarar.
+* Hücrelerin sadece yürünebilir alana (0) bakan yüzeylerini tespit eder.
+* Bu yüzeyleri `[{x1, y1, x2, y2}, ...]` formatında çizgi segmentlerine (line segments) dönüştürür.
+* **Optimizasyon:** İçi dolu duvar bloklarının iç yüzeylerini veri setinden elediği için, BSP ağacına ve ışın izleme (raycasting) algoritmalarına giden işlem yükünü (node sayısını) ciddi oranda azaltır.
 
-### Ekip Entegrasyon Hedefleri (Gelecek Aşamalar)
-- **Uzamsal Mimari:** Ekip arkadaşlarımızın üzerinde çalıştığı **BSP Ağacı** yapısı sisteme dahil edildiğinde, duvarlar ve odalar arası çarpışma testleri bu fizik motoruna entegre edilecektir.
-- **Zeki Navigasyon:** Diğer ekip üyeleri tarafından hazırlanan **A* Algoritması** verileri, mevcut hareket motoru üzerinden düşman karakterlere aktarılacaktır.
+## 🚀 Çalıştırma ve Test Ortamı (HTML5 Canvas)
+Üretilen algoritmaların test edilmesi için `harita-olusturucu.html` dosyası oluşturulmuştur.
+* Dosya herhangi bir tarayıcıda açıldığında sistem otomatik olarak yeni bir harita üretir.
+* Canvas üzerindeki **mavi çizgiler**, Data Parser'ın ürettiği ve diğer modüllere JSON objesi olarak aktarılacak olan asıl duvar (çarpışma/görüş engeli) koordinatlarını temsil etmektedir.
 
-## 4. Dosya Yapısı ve İşlevleri
-- `index.html`: Projenin ana iskeleti ve görselleştirme alanı.
-- `src/player.js`: Karakterin fiziksel tanımı ve kullanıcı girdi (input) mekanizması.
-- `src/game.js`: Fiziksel güncellemelerin ve çizimlerin yapıldığı ana döngü.
-
-## 5. Kurulum ve Projeyi Ayağa Kaldırma
-
-Proje, herhangi bir dış bağımlılık veya karmaşık derleme süreci gerektirmez. Aşağıdaki iki yöntemden birini kullanarak saniyeler içinde çalıştırılabilir:
-
-### Yöntem A: VS Code "Live Server" ile Çalıştırma
-
-1. **Dosyaları İndirin:** Proje klasörünü bilgisayarınıza indirin veya `git clone` ile çekin.
-2. **VS Code ile Açın:** Klasörü Visual Studio Code üzerinden açın.
-3. **Live Server'ı Başlatın:** - Eğer yüklü değilse, VS Code uzantılar kısmından **"Live Server"** eklentisini kurun.
-   - Editörün sağ alt köşesinde bulunan **"Go Live"** butonuna tıklayın.
-4. **Tarayıcıyı Kontrol Edin:** Proje otomatik olarak `http://127.0.0.1:5500` adresinde açılacaktır.
-
-### Yöntem B: Doğrudan Tarayıcı Üzerinden Çalıştırma
-Herhangi bir editör kullanmadan hızlıca önizleme yapmak için:
-1. Proje klasörü içindeki `index.html` dosyasına sağ tıklayın.
-2. **"Birlikte Aç"** (Open With) diyerek listenizdeki modern bir tarayıcıyı (Chrome, Edge veya Firefox) seçin.
-
-### Kullanım ve Kontroller
-- **Karakter Hareketi:** Mavi renkli oyuncuyu **W-A-S-D** veya **Yön Tuşlarını** kullanarak ekran içinde serbestçe hareket ettirebilirsiniz.
-
----
+## 📝 Gelecek Planları (To-Do)
+* [ ] A* algoritmasının devriye (patrol) durumlarında sıkışmaması için üretilen haritadaki bazı çıkmaz sokakların sonradan kırılarak dairesel yollar (loops) oluşturulması.
+* [ ] Oyuncu (Player) ve Düşman (Enemy) için güvenli başlangıç koordinatlarının (Spawn Points) tespit edilmesi.
+* [ ] Ekip ile mutabık kalınarak "Hücre Boyutu" (Cell Size) sabitlerinin ayarlanması.
