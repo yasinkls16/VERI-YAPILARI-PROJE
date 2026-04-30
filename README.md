@@ -2,7 +2,7 @@
 VERİ YAPILARI PROJE GRUBU 
 # 🏗️ Faz 1: BSP Ağacı ve Uzamsal Bölme Altyapısı
 
-**VERİ YAPILARI PROJE GRUBU**
+
 **Süha Tüfekçi - 032490079**
 
 Bu branch, Veri Yapıları projesi isterlerinde belirtilen "Zorunlu Veri Yapıları (Faz 1)" aşamasının çekirdeğini oluşturan **Binary Space Partitioning (BSP) Ağacı** implementasyonunu içermektedir. 
