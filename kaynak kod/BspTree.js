@@ -58,13 +58,37 @@ class BSPNode {
         }
     }
 
-    // Sonsuz döngü kontrolü için yardımcı fonksiyon (Taslak)
+    // Sonsuz döngü kontrolü için yardımcı fonksiyon
     areAllWallsCollinear(walls) {
         if (walls.length <= 1) return true;
         // İleride matematiksel paralellik hesabı eklenecek
         return false; 
     }
-}
+
+    // YENİ EKLENEN KISIM: Diğer modüllerin (Raycasting ve Çarpışma) çağıracağı ana sorgu fonksiyonu
+    getRelevantWalls(targetX, targetY) {
+        let localWalls = [];
+        
+        // 1. Kendi düğümümdeki duvarları ekle
+        localWalls.push(...this.walls);
+
+        // 2. Hedefin koordinatlarına göre ağaçta gezin (Şimdilik tüm ağacı geziyoruz)
+        if (this.front) {
+            localWalls.push(...this.front.getRelevantWalls(targetX, targetY));
+        }
+        if (this.back) {
+            localWalls.push(...this.back.getRelevantWalls(targetX, targetY));
+        }
+
+        return localWalls;
+    }
+
+    // YENİ EKLENEN KISIM: Matematiksel bölme işlemi için yardımcı fonksiyon (Faz 2)
+    getWallSide(partitionLine, checkWall) {
+        // İleride burada Vektörel Çarpım (Cross Product) formülleri kullanılacak.
+        return "UNKNOWN"; 
+    }
+} // <-- BSPNode Sınıfının Kapanışı
 
 // Test için ana çalışma bloğu
 console.log("BSP Ağacı başlatılıyor...");
@@ -74,4 +98,4 @@ const ornekDuvarlar = [
     new Wall(10, 0, 10, 10)
 ];
 const rootNode = new BSPNode(ornekDuvarlar);
-console.log("BSP Ağacı başarıyla oluşturuldu.");
+console.log("BSP Ağacı başarıyla oluşturuldu. İletişim fonksiyonları eklendi.");
