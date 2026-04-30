@@ -91,3 +91,8 @@ Bu proje, 2 boyutlu gizlilik oyununun otonom düşman hareketlerini yöneten yap
 * İlerleyen fazlarda $A^{*}$ yapısı, arayüzden JSON isteklerini dinleyen ve rotayı geri döndüren bağımsız bir API (Mikroservis) haline getirilip Dockerize edilecektir.
 * Ekip üyelerinin geliştirdiği BSP ağacı ve zeki navigasyon verileri, oyunun fizik motoruna aktarılacak ve duvarlar arası çarpışma testleri aktif edilecektir.
 * Şu an geliştirme dallarında (feature branches) olan çalışmalar test edildikten sonra Pull Request ile ana projeye (master branch) eklenecektir.
+
+---
+
+## Mevcut Durum
+Şu an itibariyle projenin GitHub reposu kurulmuş, ekip üyeleri branch'lerini oluşturmuş ve veri yapılarının (Node ve Struct'lar) temel iskeletleri kodlanmaya başlanmıştır.
