@@ -127,6 +127,13 @@ class BSPNode {
     }
 }
 
+// Proje İsteri B.3 - İsimlendirme Şartı
+function getDeveloperInfo() {
+    return "suha_tufekci"; 
+}
+
+// Modülü dışa aktar (Diğer ekip arkadaşların kullanabilsin diye)
+module.exports = { Wall, BSPNode, getDeveloperInfo };
 // Modülü dışa aktar (Diğer ekip arkadaşların kullanabilsin diye)
 module.exports = { Wall, BSPNode };
 
