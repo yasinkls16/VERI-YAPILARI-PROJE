@@ -36,13 +36,16 @@ class EnemyAI {
             }
         } 
         else if (this.state === 'CHASE') {
-            // Takipteyse oyuncunun GÜNCEL konumuna rota iste, 
-            // AMA Worker'ı boğmamak için Cooldown (bekleme) süresinin dolduğundan emin ol!
             if (!this.isWaitingForWorker && (currentTime - this.lastPathRequestTime > this.pathRequestCooldown)) {
-                this.requestPath(aiWorker, [playerX, playerY]);
+                // Pikselleri A* için Grid hücelerine çeviriyoruz
+                const CELL_SIZE = 32;
+                const playerGridX = Math.floor(playerX / CELL_SIZE);
+                const playerGridY = Math.floor(playerY / CELL_SIZE);
+        
+                this.requestPath(aiWorker, [playerGridX, playerGridY]);
                 this.lastPathRequestTime = currentTime;
-            }
-        }
+    }
+}
 
         // 3. FİZİKSEL HAREKET ADIMI
         this.moveAlongPath();
@@ -67,17 +70,20 @@ class EnemyAI {
     // OPTİMİZASYON 2'ye Uygun Mesajlaşma Protokolü
     requestPath(worker, targetCoords) {
         this.isWaitingForWorker = true;
-        
-        // Artık haritayı (grid) göndermiyoruz, çünkü Worker oyun başında haritayı ezberledi
+    
+        const CELL_SIZE = 32;
+        const myGridX = Math.floor(this.x / CELL_SIZE);
+        const myGridY = Math.floor(this.y / CELL_SIZE);
+
         worker.postMessage({
             type: 'path',
             data: {
                 id: this.id,
-                startCoords: [Math.floor(this.x), Math.floor(this.y)],
+                startCoords: [myGridX, myGridY],
                 targetCoords: targetCoords
-            }
-        });
-    }
+        }
+    });
+}
 
     // Worker rotayı bulduğunda test.js (veya oyun motoru) bu fonksiyonu tetikleyecek
     receivePath(calculatedPath) {
@@ -88,16 +94,30 @@ class EnemyAI {
     // 4. Kişinin kullanacağı rotada ilerleme mantığı
     moveAlongPath() {
         if (this.path.length > 0) {
-            // Rotadaki ilk adımı al
-            const nextStep = this.path[0];
-            
-            // Not: Gerçek canvas oyununda burası x ve y'yi yavaşça artırma/azaltma (interpolation) 
-            // işlemi olacaktır. Şimdilik mantığı kurmak için doğrudan o kareye atıyoruz.
-            this.x = nextStep[0];
-            this.y = nextStep[1];
+            const CELL_SIZE = 32;
+            const nextGrid = this.path[0];
+        
+            // Gitmek istediğimiz grid hücesinin merkez piksel koordinatları
+            const targetPixelX = (nextGrid[0] * CELL_SIZE) + (CELL_SIZE / 2);
+            const targetPixelY = (nextGrid[1] * CELL_SIZE) + (CELL_SIZE / 2);
 
-            // O adıma vardığımız için rotadan o adımı sil
-            this.path.shift();
+            // Hedef piksele olan mesafe hesaplaması
+            const dx = targetPixelX - this.x;
+            const dy = targetPixelY - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            const speed = 2; // Düşmanın kare başına ilerleme hızı (piksel)
+
+            if (distance > speed) {
+                // Henüz hücre merkezine varmadık, o yöne doğru ilerle
+                this.x += (dx / distance) * speed;
+                this.y += (dy / distance) * speed;
+            } else {
+                // Hücre merkezine ulaştık, konumu tam eşitle ve listeden bu adımı temizle
+                this.x = targetPixelX;
+                this.y = targetPixelY;
+                this.path.shift();
         }
     }
+}
 }
