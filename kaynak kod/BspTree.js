@@ -134,8 +134,7 @@ function getDeveloperInfo() {
 
 // Modülü dışa aktar (Diğer ekip arkadaşların kullanabilsin diye)
 module.exports = { Wall, BSPNode, getDeveloperInfo };
-// Modülü dışa aktar (Diğer ekip arkadaşların kullanabilsin diye)
-module.exports = { Wall, BSPNode };
+
 
 // --- KÜÇÜK BİR ÇALIŞTIRMA TESTİ ---
 console.log("BSP Ağacı Final Versiyonu Başlatılıyor...");
