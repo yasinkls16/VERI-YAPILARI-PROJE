@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>2D BSP Stealth Game - Entegre Versiyon</title>
+    <style>
+        body {
+            margin: 0;
+            background: #2c3e50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: sans-serif;
+            flex-direction: column;
+        }
+        canvas {
+            border: 4px solid #34495e;
+            background: #1a252f;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <h2>BSP Görüş Alanı, A* ve Fizik Motoru Entegrasyonu</h2>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        window.module = {};
+    </script>
+    
+    <script src="BspTree.js"></script>
+    <script src="vision.js"></script>
+    <script src="PhysicsEngine.js"></script>
+    <script src="player.js"></script>
+    <script src="EnemyAI.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
