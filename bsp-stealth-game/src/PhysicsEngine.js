@@ -1,6 +1,5 @@
 const CELL_SIZE = 32; 
 
-// Projenin fiziksel nesne (Oyuncu ve Düşmanlar) temel veri sınıfı
 class PhysicalEntity {
     constructor(startX, startY) {
         this.x = startX;
@@ -18,7 +17,6 @@ class PhysicalEntity {
     }
 }
 
-// Ana fizik ve çarpışma algoritması classı
 class PhysicsEngine {
     constructor() {
         // Klavye tuş takibi için dinamik girdi nesnesi
@@ -43,7 +41,7 @@ class PhysicsEngine {
         }
     }
 
-    // Piksel koordinatını Grid hücelerine (Matrise) çevirir
+    // Piksel koordinatını Grid hücrelerine (Matrise) çevirir
     pixelToGrid(pixelX, pixelY) {
         return {
             x: Math.floor(pixelX / CELL_SIZE),
@@ -59,27 +57,41 @@ class PhysicsEngine {
         };
     }
 
-    // Klavye yön tuşlarına göre karaktere fiziksel ivme kazandırır
     applyKeyboardInput(character) {
         const moveForce = 0.6; 
+        let moveX = 0;
+        let moveY = 0;
 
-        if (this.keys.ArrowUp || this.keys.w) character.ay = -moveForce;
-        if (this.keys.ArrowDown || this.keys.s) character.ay = moveForce;
-        if (this.keys.ArrowLeft || this.keys.a) character.ax = -moveForce;
-        if (this.keys.ArrowRight || this.keys.d) character.ax = moveForce;
+        // Girdi yönlerini topla
+        if (this.keys.ArrowUp || this.keys.w) moveY -= 1;
+        if (this.keys.ArrowDown || this.keys.s) moveY += 1;
+        if (this.keys.ArrowLeft || this.keys.a) moveX -= 1;
+        if (this.keys.ArrowRight || this.keys.d) moveX += 1;
+
+        // Çapraz hareket kontrolü ve normalizasyon
+        if (moveX !== 0 && moveY !== 0) {
+            const length = Math.sqrt(moveX * moveX + moveY * moveY);
+            moveX /= length;
+            moveY /= length;
+        }
+
+        // Kuvveti karakter ivmesine aktar
+        character.ax = moveX * moveForce;
+        character.ay = moveY * moveForce;
     }
 
-    // Karakteri hareket ettirir ve Süha'nın BSP ağacını sorgular
-    // bspRootNode: Süha'nın BspTree.js'deki ana ağaç kök nesnesidir.
+    // Karakter fiziğini ve konumunu günceller.
     updatePlayerPhysics(character, deltaTime, bspRootNode) {
         // Klavyeden gelen kuvvetleri oku ve uygula
         this.applyKeyboardInput(character);
 
-        // ivmeyi hıza dönüştür ve sürtünme payını düş
+        // İvmeyi hıza dönüştür
         character.vx += character.ax * deltaTime;
         character.vy += character.ay * deltaTime;
-        character.vx *= character.friction;
-        character.vy *= character.friction;
+        
+        // Oyunun farklı FPS değerlerinde (30 FPS / 60 FPS / 144 FPS) aynı hızda yavaşlaması sağlandı.
+        character.vx *= Math.pow(character.friction, deltaTime);
+        character.vy *= Math.pow(character.friction, deltaTime);
 
         // Karakterin maksimum hız limitini aşmasını engelle
         const currentSpeed = Math.sqrt(character.vx * character.vx + character.vy * character.vy);
@@ -92,14 +104,13 @@ class PhysicsEngine {
         let nextX = character.x + character.vx * deltaTime;
         let nextY = character.y + character.vy * deltaTime;
 
-        // Süha'nın yazdığı getRelevantWalls() fonksiyonu çağrılır
-        // Bu sayede tüm harita taranmaz, sadece karakterin bulunduğu bölgedeki duvarlar çekilir.
+        // Uzamsal arama ile sadece karakterin etrafındaki duvarları çek
         let surroundingWalls = [];
         if (bspRootNode && typeof bspRootNode.getRelevantWalls === 'function') {
-            surroundingWalls = bspRootNode.getRelevantWalls(nextX, nextY); // O(log n) Uzamsal Arama
+            surroundingWalls = bspRootNode.getRelevantWalls(nextX, nextY); 
         }
 
-        // AABB Çarpışma Testi 
+        // AABB Çarpışma Testi
         let hasCollision = this.checkCollisionWithWalls(nextX, nextY, surroundingWalls);
 
         if (!hasCollision) {
@@ -107,7 +118,6 @@ class PhysicsEngine {
             character.x = nextX;
             character.y = nextY;
         } else {
-            // Duvara çaprıtysa hızı sıfırla (Duvarın içinden geçmeyi engeller)
             character.vx = 0;
             character.vy = 0;
         }
@@ -117,13 +127,13 @@ class PhysicsEngine {
         character.ay = 0;
     }
 
-    // AABB Çarpışma Kutusu (Genişlik/Yükseklik) ile Çizgi Duvarlar Arasındaki Kesişim Matematiği
+    // AABB Çarpışma Kutusu ile Çizgi Duvarlar Arasındaki Kesişim Matematiği
     checkCollisionWithWalls(nextX, nextY, walls = []) {
-        // Karakterin merkezinden dışarı doğru 20x20'lik görünmez kutu sınırları hesaplanır
-        const charLeft   = nextX - 10; // (width / 2)
-        const charRight  = nextX + 10; // (width / 2)
-        const charTop    = nextY - 10; // (height / 2)
-        const charBottom = nextY + 10; // (height / 2)
+        // Karakterin merkezinden dışarı doğru kutu sınırları hesaplanır (width:20, height:20)
+        const charLeft   = nextX - 10; 
+        const charRight  = nextX + 10; 
+        const charTop    = nextY - 10; 
+        const charBottom = nextY + 10; 
 
         for (let i = 0; i < walls.length; i++) {
             const wall = walls[i];
@@ -132,21 +142,22 @@ class PhysicsEngine {
             if (wall.x1 === wall.x2) {
                 const inYRange = charBottom >= Math.min(wall.y1, wall.y2) && charTop <= Math.max(wall.y1, wall.y2);
                 if (inYRange && charLeft <= wall.x1 && charRight >= wall.x1) {
-                    return true; // Çarpışma var!
+                    return true; // Çarpışma var
                 }
             }
             // Durum B: Duvar yatay bir çizgi segmenti ise
             else if (wall.y1 === wall.y2) {
                 const inXRange = charRight >= Math.min(wall.x1, wall.x2) && charLeft <= Math.max(wall.x1, wall.x2);
                 if (inXRange && charTop <= wall.y1 && charBottom >= wall.y1) {
-                    return true; // Çarpışma var!
+                    return true; // Çarpışma var
                 }
             }
         }
-        return false; // Çarpışma yok, geçiş serbest
+        return false; // Çarpışma yok
     }
 }
 
+// Node.js ve tarayıcı ortamları için dışa aktarım uyumluluğu
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { PhysicsEngine, PhysicalEntity };
 }
