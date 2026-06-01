@@ -108,19 +108,39 @@ class BSPNode {
     }
 
     // === DİĞER MODÜLLER (RAYCASTING & A*) İÇİN ANA SORGULAMA FONKSİYONU ===
-    getRelevantWalls(targetX, targetY) {
+   // === DİĞER MODÜLLER İÇİN OPTİMİZE EDİLMİŞ SORGULAMA FONKSİYONU ===
+    // Artık radius (tarama yarıçapı) alıyor, varsayılan olarak 50 piksel/birim.
+    getRelevantWalls(targetX, targetY, radius = 50) {
         let localWalls = [];
         let side = this.classifyPoint(this.partitionLine, targetX, targetY);
 
-        // OPTİMİZASYON: Hedef hangi taraftaysa ÖNCE o tarafın alt ağacını ara
-        if (side === "FRONT" || side === "COLLINEAR") {
-            if (this.front) localWalls.push(...this.front.getRelevantWalls(targetX, targetY));
-            localWalls.push(...this.walls);
-            if (this.back) localWalls.push(...this.back.getRelevantWalls(targetX, targetY));
+        // Hedef noktanın (oyuncunun) bölme düzlemine olan dik uzaklığını hesapla
+        let dx = this.partitionLine.x2 - this.partitionLine.x1;
+        let dy = this.partitionLine.y2 - this.partitionLine.y1;
+        
+        let numerator = Math.abs(dy * targetX - dx * targetY + (this.partitionLine.x2 * this.partitionLine.y1 - this.partitionLine.y2 * this.partitionLine.x1));
+        let denominator = Math.sqrt(dx * dx + dy * dy);
+        let distance = numerator / denominator;
+
+        // ALAN BUDAMASI (SPATIAL CULLING): 
+        // Eğer oyuncu düzleme yarıçaptan daha uzaksa, DİĞER TARAFI HİÇ TARAMA!
+        if (distance > radius) {
+            if (side === "FRONT" && this.front) {
+                localWalls.push(...this.front.getRelevantWalls(targetX, targetY, radius));
+            } else if (side === "BACK" && this.back) {
+                localWalls.push(...this.back.getRelevantWalls(targetX, targetY, radius));
+            }
         } else {
-            if (this.back) localWalls.push(...this.back.getRelevantWalls(targetX, targetY));
-            localWalls.push(...this.walls);
-            if (this.front) localWalls.push(...this.front.getRelevantWalls(targetX, targetY));
+            // Yarıçap düzlemi kesiyorsa, yakındayız demektir. Mecburen iki tarafı da tara.
+            if (side === "FRONT" || side === "COLLINEAR") {
+                if (this.front) localWalls.push(...this.front.getRelevantWalls(targetX, targetY, radius));
+                localWalls.push(...this.walls);
+                if (this.back) localWalls.push(...this.back.getRelevantWalls(targetX, targetY, radius));
+            } else {
+                if (this.back) localWalls.push(...this.back.getRelevantWalls(targetX, targetY, radius));
+                localWalls.push(...this.walls);
+                if (this.front) localWalls.push(...this.front.getRelevantWalls(targetX, targetY, radius));
+            }
         }
 
         return localWalls;
