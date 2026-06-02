@@ -132,6 +132,28 @@ function generateRandomGrid() {
             isValidMap = true; // Harita onaylandı, döngüden çık!
         }
     }
+}
+// Worker arka planda rotayı bulduğunda tetiklenecek dinleyici
+aiworker.onmessage = function(event) {
+    const { enemyId, path } = event.data;
+
+    // --- ARKADAŞIN İÇİN MANUEL LOG BAŞLANGICI ---
+    console.log(`[A* Sistemi] ${enemyId} numaralı düşman için rota hesaplaması bitti.`);
+    
+    if (path && path.length > 0) {
+        const hedef = path[path.length - 1]; // Dizideki son eleman hedef noktasıdır
+        console.log(`🎯 [Hedef Bilgisi] Düşman şu konuma gidiyor -> X: ${hedef.x}, Y: ${hedef.y}`);
+        console.log("🛤️ Tam Rota Uzunluğu:", path.length, "adım.");
+        console.log("İlk 3 Adım:", path.slice(0, 3));
+    } else {
+        console.log(`🚨 [Uyarı] Düşman rotayı bulamadı veya hedef zaten yanında!`);
+    }
+    // --- LOG BİTİŞİ ---
+
+    if (enemyId === enemy.id) {
+        // Arkadaşının yazdığı rotayı düşmana atama kodları burada devam etmeli
+        // Örneğin: enemy.path = path;
+    }
 
     return newGrid;
 }
