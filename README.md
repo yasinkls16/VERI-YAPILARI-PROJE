@@ -1,6 +1,6 @@
 # 2D BSP Stealth Game — Teknik Dokümantasyon
 
------
+----
 
 ## Geliştirici Ekibi
 | Rol | İsim |
