@@ -28,8 +28,8 @@ class EnemyAI {
         
         if (this.state === 'CHASE' && canSeePlayer && distToPlayer < 80) {
             if (distToPlayer > 15) { 
-                const nextX = this.x + (dxToPlayer / distToPlayer) * 2.5;
-                const nextY = this.y + (dyToPlayer / distToPlayer) * 2.5;
+                const nextX = this.x + (dxToPlayer / distToPlayer) * 6.5;
+                const nextY = this.y + (dyToPlayer / distToPlayer) * 6.5;
                 
                 let localWalls = bspRoot ? bspRoot.getRelevantWalls(nextX, nextY) : [];
                 
@@ -81,7 +81,7 @@ class EnemyAI {
             const dy = targetPixelY - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            const speed = 2;
+            const speed = 7.5;
             const WAYPOINT_TOLERANCE = 12; // GÜNCELLEME: Hücrenin merkezine 12 piksel yaklaştığında hedefe varmış say!
 
             if (distance > WAYPOINT_TOLERANCE) {
