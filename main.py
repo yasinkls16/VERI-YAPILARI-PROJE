@@ -23,13 +23,13 @@ class PathRequest(BaseModel):
     grid: list[list[int]]
 
 # Chebyshev (Diagonal) Distance Optimizasyonu
-def heuristic(node, target):
+def yasinheuristic(node, target):
     dx = abs(node[0] - target[0])
     dy = abs(node[1] - target[1])
     return (dx + dy) + (math.sqrt(2) - 2) * min(dx, dy)
 
 # Komşu düğümleri (Grid hücrelerini) ve hareket maliyetlerini bulan fonksiyon
-def get_neighbors(x, y, grid):
+def yasinget_neighbors(x, y, grid):
     rows = len(grid)
     cols = len(grid[0])
     directions = [
@@ -56,7 +56,7 @@ def get_neighbors(x, y, grid):
 
 # Rota hesaplama uç noktası (Endpoint)
 @app.post("/calculate-path")
-def calculate_path(req: PathRequest):
+def yasincalculate_path(req: PathRequest):
     start = tuple(req.startCoords)
     target = tuple(req.targetCoords)
     grid = req.grid
@@ -80,14 +80,14 @@ def calculate_path(req: PathRequest):
             path.reverse()
             return {"id": req.id, "path": path}
 
-        for nx, ny, cost in get_neighbors(current[0], current[1], grid):
+        for nx, ny, cost in yasinget_neighbors(current[0], current[1], grid):
             neighbor = (nx, ny)
             tentative_g = g_score[current] + cost
             
             if neighbor not in g_score or tentative_g < g_score[neighbor]:
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g
-                f_score = tentative_g + heuristic(neighbor, target)
+                f_score = tentative_g + yasinheuristic(neighbor, target)
                 heapq.heappush(open_set, (f_score, neighbor))
 
     # Yol bulunamazsa boş liste dön

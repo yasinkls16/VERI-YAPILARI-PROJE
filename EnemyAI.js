@@ -1,7 +1,7 @@
 // src/EnemyAI.js
 
 class EnemyAI {
-    constructor(id, startX, startY) {
+    yasinconstructor(id, startX, startY) {
         this.id = id;
         this.x = startX;
         this.y = startY;
@@ -11,14 +11,14 @@ class EnemyAI {
         this.lastPathRequestTime = 0;
     }
 
-    update(playerX, playerY, canSeePlayer, walkableCells, physicsEngine, bspRoot) {
+    yasinupdate(playerX, playerY, canSeePlayer, walkableCells, physicsEngine, bspRoot) {
         
         // 1. DURUM GEÇİŞLERİ (Rotayı çöpe atmayı bıraktık)
         if (this.state === 'WANDER' && canSeePlayer) {
-            this.changeState('CHASE');
+            this.yasinchangeState('CHASE');
         } 
         else if (this.state === 'CHASE' && !canSeePlayer) {
-            this.changeState('WANDER');
+            this.yasinchangeState('WANDER');
         }
 
         // === YAKIN MESAFE DOĞRUDAN TAKİP (Buraya da Wall Sliding eklendi) ===
@@ -50,8 +50,8 @@ class EnemyAI {
         // 2. UZAK MESAFE ROTA İSTEME
         if (this.state === 'WANDER') {
             if (this.path.length === 0 && !this.isWaitingForWorker) {
-                const randomTarget = this.getRandomWalkableCoords(walkableCells);
-                this.requestPath(randomTarget);
+                const randomTarget = this.yasingetRandomWalkableCoords(walkableCells);
+                this.yasinrequestPath(randomTarget);
             }
         } 
         else if (this.state === 'CHASE') {
@@ -61,15 +61,15 @@ class EnemyAI {
                 const playerGridX = Math.floor(playerX / CELL_SIZE);
                 const playerGridY = Math.floor(playerY / CELL_SIZE);
         
-                this.requestPath([playerGridY, playerGridX]);
+                this.yasinrequestPath([playerGridY, playerGridX]);
             }
         }
 
         // 3. FİZİKSEL HAREKET
-        this.MoveAlongPath(physicsEngine, bspRoot);
+        this.yasinMoveAlongPath(physicsEngine, bspRoot);
     }
 
-    MoveAlongPath(physicsEngine, bspRoot) {
+    yasinMoveAlongPath(physicsEngine, bspRoot) {
         if (this.path.length > 0) {
             const CELL_SIZE = 32;
             const nextGrid = this.path[0];
@@ -118,7 +118,7 @@ class EnemyAI {
         }
     }
 
-    changeState(newState) {
+    yasinchangeState(newState) {
         if (this.state !== newState) {
             console.log(`[Düşman ${this.id}] Mod Değiştirdi: ${this.state} -> ${newState}`);
             this.state = newState;
@@ -126,12 +126,12 @@ class EnemyAI {
         }
     }
 
-    getRandomWalkableCoords(walkableCells) {
+    yasingetRandomWalkableCoords(walkableCells) {
         const randomIndex = Math.floor(Math.random() * walkableCells.length);
         return walkableCells[randomIndex];
     }
 
-    requestPath(targetCoords) {
+    yasinrequestPath(targetCoords) {
         const currentTime = Date.now();
         if (currentTime - this.lastPathRequestTime < 500) return;
         
@@ -156,7 +156,7 @@ class EnemyAI {
         .then(data => {
             if (data && data.path) {
                 console.log(`[Düşman ${this.id}] Python Rota Haritası:`, data.path);
-                this.receivePath(data.path);
+                this.yasinreceivePath(data.path);
             } else {
                 this.isWaitingForWorker = false;
             }
@@ -167,7 +167,7 @@ class EnemyAI {
         });
     }
 
-    receivePath(calculatedPath) {
+    yasinreceivePath(calculatedPath) {
         if (!this.isWaitingForWorker) return;
         if (calculatedPath.length > 0) {
             calculatedPath.shift();

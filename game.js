@@ -34,22 +34,22 @@ const winZone = {
 // ==========================================
 // 2. PROSEDÜREL HARİTA ÜRETİMİ (DFS ALGORİTMASI)
 // ==========================================
-function generateRandomGrid(rows, cols) {
+function yigitgenerateRandomGrid(rows, cols) {
     let grid = Array(rows).fill().map(() => Array(cols).fill(1));
     
-    function carve(r, c) {
+    function yigitcarve(r, c) {
         grid[r][c] = 0; 
         const dirs = [[-2, 0], [2, 0], [0, -2], [0, 2]].sort(() => Math.random() - 0.5);
         for (let [dr, dc] of dirs) {
             let nr = r + dr, nc = c + dc;
             if (nr > 0 && nr < rows - 1 && nc > 0 && nc < cols - 1 && grid[nr][nc] === 1) {
                 grid[r + dr / 2][c + dc / 2] = 0; 
-                carve(nr, nc); 
+                yigitcarve(nr, nc); 
             }
         }
     }
     
-    carve(1, 1);
+    yigitcarve(1, 1);
     
     for (let i = 0; i < 20; i++) {
         let r = Math.floor(Math.random() * (rows - 2)) + 1;
@@ -66,8 +66,8 @@ function generateRandomGrid(rows, cols) {
 // ==========================================
 // 3. SEVİYE YÜKLEME VE AĞAÇ İNŞASI
 // ==========================================
-function initLevel() {
-    gameGrid = generateRandomGrid(19, 25);
+function yigitinitLevel() {
+    gameGrid = yigitgenerateRandomGrid(19, 25);
     walkableCells = [];
     mapWalls = [];
 
@@ -98,13 +98,13 @@ function initLevel() {
 // 4. ARAYÜZ VE OYUN KONTROL FONKSİYONLARI
 // ==========================================
 actionBtn.addEventListener("click", () => {
-    resetGame();
+    yigitresetGame();
     gameState = "PLAYING";
     uiMenu.style.display = "none"; 
 });
 
-function resetGame() {
-    initLevel(); 
+function yigitresetGame() {
+    yigitinitLevel(); 
 
     pEntity.x = 45;
     pEntity.y = 45;
@@ -118,14 +118,14 @@ function resetGame() {
     enemy.path = [];
 }
 
-function showMenu(title, buttonText, titleColor) {
+function yigitshowMenu(title, buttonText, titleColor) {
     uiMenu.style.display = "flex";
     menuTitle.innerText = title;
     menuTitle.style.color = titleColor;
     actionBtn.innerText = buttonText;
 }
 
-function checkLineOfSight(enemyX, enemyY, playerX, playerY) {
+function yigitcheckLineOfSight(enemyX, enemyY, playerX, playerY) {
     const dx = playerX - enemyX;
     const dy = playerY - enemyY;
     const angle = Math.atan2(dy, dx);
@@ -154,7 +154,7 @@ let currentFps = 0;
 let frameCount = 0;
 let lastFpsTime = performance.now();
 
-function gameLoop(timestamp) {
+function yigitgameLoop(timestamp) {
     let deltaTime = (timestamp - lastTime) / 16.66;
     if (deltaTime > 2) deltaTime = 2; 
     lastTime = timestamp;
@@ -170,21 +170,21 @@ function gameLoop(timestamp) {
 
     if (gameState === "PLAYING") {
         physicsEngine.updatePlayerPhysics(pEntity, deltaTime, bspRoot);
-        const canSee = checkLineOfSight(enemy.x, enemy.y, pEntity.x, pEntity.y);
+        const canSee = yigitcheckLineOfSight(enemy.x, enemy.y, pEntity.x, pEntity.y);
         enemy.update(pEntity.x, pEntity.y, canSee, walkableCells, physicsEngine, bspRoot);
 
         const dist = Math.hypot(pEntity.x - enemy.x, pEntity.y - enemy.y);
         if (dist < 20) { 
             score = Math.max(0, score - 100);
             gameState = "GAMEOVER";
-            showMenu("YAKALANDIN!", "Yeniden Dene", "#e74c3c");
+            yigitshowMenu("YAKALANDIN!", "Yeniden Dene", "#e74c3c");
         }
 
         if (pEntity.x > winZone.x && pEntity.x < winZone.x + winZone.width &&
             pEntity.y > winZone.y && pEntity.y < winZone.y + winZone.height) {
             score = score + 100;
             gameState = "WIN";
-            showMenu("KAZANDIN!", "Sıradaki Bölüm", "#2ecc71");
+            yigitshowMenu("KAZANDIN!", "Sıradaki Bölüm", "#2ecc71");
         }
     }
 
@@ -235,7 +235,7 @@ function gameLoop(timestamp) {
     ctx.textAlign = "right";
     ctx.fillText("FPS: " + currentFps, canvas.width - 20, 35);
 
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(yigitgameLoop);
 }
 
-requestAnimationFrame(gameLoop);
+requestAnimationFrame(yigitgameLoop);
