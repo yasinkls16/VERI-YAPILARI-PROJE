@@ -15,7 +15,7 @@ class EnemyAI {
     }
 
     // Oyun döngüsü tarafından saniyede 60 kez çağrılır
-    update(playerX, playerY, canSeePlayer, aiWorker, walkableCells) {
+    update(playerX, playerY, canSeePlayer, aiWorker, walkableCells, physicsEngine, bspRoot) {
         
         // 1. DURUM (STATE) GEÇİŞ KONTROLLERİ
         if (this.state === 'WANDER' && canSeePlayer) {
@@ -27,21 +27,31 @@ class EnemyAI {
 
         const currentTime = Date.now();
 
-        // === YENİ EKLENEN KISIM: YAKIN MESAFE DOĞRUDAN TAKİP (AVLANMA) ===
+        // === YAKIN MESAFE DOĞRUDAN TAKİP KONTROLÜ ===
         const dxToPlayer = playerX - this.x;
         const dyToPlayer = playerY - this.y;
         const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer);
         
         if (this.state === 'CHASE' && canSeePlayer && distToPlayer < 80) {
-            // Eğer oyuncuya çok yakınsak, A* ızgaralarını unut, doğrudan hedefe koş!
-            if (distToPlayer > 15) { // İçinden geçmemesi için 15 piksel mesafe bırakır
-                this.x += (dxToPlayer / distToPlayer) * 2.5; // Biraz daha hızlı atılır
-                this.y += (dyToPlayer / distToPlayer) * 2.5;
+            if (distToPlayer > 15) { 
+                const nextX = this.x + (dxToPlayer / distToPlayer) * 2.5;
+                const nextY = this.y + (dyToPlayer / distToPlayer) * 2.5;
+                
+                let localWalls = bspRoot ? bspRoot.getRelevantWalls(nextX, nextY) : [];
+                
+                // --- WALL SLIDING (DUVAR KAYMASI) ---
+                // X ekseninde gitmeyi dene
+                if (!physicsEngine.checkCollisionWithWalls(nextX, this.y, localWalls)) {
+                    this.x = nextX;
+                }
+                // Y ekseninde gitmeyi dene
+                if (!physicsEngine.checkCollisionWithWalls(this.x, nextY, localWalls)) {
+                    this.y = nextY;
+                }
             }
-            this.path = []; // Arkada kalan eski A* rotasını temizle
-            return; // Fonksiyonu burada bitir, aşağıdaki matris hareketine girme
+            this.path = []; 
+            return; 
         }
-        // =================================================================
 
         // 2. UZAK MESAFE HAREKET KARARLARI VE A* ROTA İSTEME
         if (this.state === 'WANDER') {
@@ -56,14 +66,71 @@ class EnemyAI {
                 const playerGridX = Math.floor(playerX / CELL_SIZE);
                 const playerGridY = Math.floor(playerY / CELL_SIZE);
         
-                // Grid [Y, X] olarak gönderilir
                 this.requestPath(aiWorker, [playerGridY, playerGridX]);
                 this.lastPathRequestTime = currentTime;
+                console.log("=== YENİ ROTA HESAPLANIYOR ===");
+                console.log(`Oyuncu Gerçek Konum: X:${playerX.toFixed(1)}, Y:${playerY.toFixed(1)}`);
+                console.log(`Oyuncu Grid (Hedef): Sütun(X):${playerGridX}, Satır(Y):${playerGridY}`);
+                console.log(`Düşman Grid (Başlangıç): Sütun(X):${Math.floor(this.x/CELL_SIZE)}, Satır(Y):${Math.floor(this.y/CELL_SIZE)}`);
+                // --- DEBUG BİTİŞİ ---
             }
         }
 
-        // 3. FİZİKSEL HAREKET ADIMI (A* ROTASINDA)
-        this.moveAlongPath();
+        // 3. FİZİKSEL HAREKET ADIMI (Jüri Puanı İçin İsimlendirildi)
+        this.MoveAlongPath(physicsEngine, bspRoot);
+    }
+
+    // B.3 İsteri: Ekip üyesinin adını taşıyan ve Çarpışma Kontrolü yapan hareket modülü
+    MoveAlongPath(physicsEngine, bspRoot) {
+        if (this.path.length > 0) {
+            const CELL_SIZE = 32;
+            const nextGrid = this.path[0];
+        
+            const targetPixelX = (nextGrid[1] * CELL_SIZE) + (CELL_SIZE / 2);
+            const targetPixelY = (nextGrid[0] * CELL_SIZE) + (CELL_SIZE / 2);
+
+            const dx = targetPixelX - this.x;
+            const dy = targetPixelY - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            const speed = 2;
+
+            if (distance > speed) {
+                // Hareketi doğrudan this.x'e eşitlemiyoruz, aday (next) koordinat oluşturuyoruz
+                const nextX = this.x + (dx / distance) * speed;
+                const nextY = this.y + (dy / distance) * speed;
+
+                // BSP Ağacından çevredeki duvarları çek
+                let surroundingWalls = [];
+                if (bspRoot && typeof bspRoot.getRelevantWalls === 'function') {
+                    surroundingWalls = bspRoot.getRelevantWalls(nextX, nextY);
+                }
+
+                // --- WALL SLIDING (DUVAR KAYMASI) ---
+                let moved = false;
+
+                // 1. Sadece X ekseninde ilerlemeyi dene
+                if (!physicsEngine.checkCollisionWithWalls(nextX, this.y, surroundingWalls)) {
+                    this.x = nextX;
+                    moved = true;
+                }
+                
+                // 2. Sadece Y ekseninde ilerlemeyi dene
+                if (!physicsEngine.checkCollisionWithWalls(this.x, nextY, surroundingWalls)) {
+                    this.y = nextY;
+                    moved = true;
+                }
+
+                // 3. Eğer iki yöne de hareket edemediyse (tam önden köşeye saplandıysa) rotayı yenile
+                if (!moved) {
+                    this.path.shift();
+                }
+            } else {
+                this.x = targetPixelX;
+                this.y = targetPixelY;
+                this.path.shift();
+            }
+        }
     }
 
     // Durumlar arası geçişi yöneten yardımcı fonksiyon
@@ -102,37 +169,12 @@ class EnemyAI {
 
     // Worker rotayı bulduğunda test.js (veya oyun motoru) bu fonksiyonu tetikleyecek
     receivePath(calculatedPath) {
+        if (!this.isWaitingForWorker) return;
+        if (calculatedPath.length > 0) {
+            calculatedPath.shift();
+        }
         this.path = calculatedPath;
         this.isWaitingForWorker = false;
     }
 
-    // 4. Kişinin kullanacağı rotada ilerleme mantığı
-    moveAlongPath() {
-        if (this.path.length > 0) {
-            const CELL_SIZE = 32;
-            const nextGrid = this.path[0];
-        
-            // Gitmek istediğimiz grid hücesinin merkez piksel koordinatları
-            const targetPixelX = (nextGrid[0] * CELL_SIZE) + (CELL_SIZE / 2);
-            const targetPixelY = (nextGrid[1] * CELL_SIZE) + (CELL_SIZE / 2);
-
-            // Hedef piksele olan mesafe hesaplaması
-            const dx = targetPixelX - this.x;
-            const dy = targetPixelY - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            const speed = 2; // Düşmanın kare başına ilerleme hızı (piksel)
-
-            if (distance > speed) {
-                // Henüz hücre merkezine varmadık, o yöne doğru ilerle
-                this.x += (dx / distance) * speed;
-                this.y += (dy / distance) * speed;
-            } else {
-                // Hücre merkezine ulaştık, konumu tam eşitle ve listeden bu adımı temizle
-                this.x = targetPixelX;
-                this.y = targetPixelY;
-                this.path.shift();
-        }
-    }
-}
 }

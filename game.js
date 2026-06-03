@@ -28,9 +28,8 @@ const aiWorker = new Worker('astarWorker.js');
 aiWorker.onmessage = function(event) {
     const { enemyId, path } = event.data;
     if (enemyId === enemy.id) {
-        // Rota koordinatlarını düşmanın formatına çevirir
-        const correctedPath = path.map(node => [node[1], node[0]]);
-        enemy.receivePath(correctedPath);
+        // EnemyAI modülü zaten [Satır, Sütun] formatını bekliyor, çevirmeye gerek yok!
+        enemy.receivePath(path);
     }
 };
 
@@ -218,7 +217,7 @@ function gameLoop(timestamp) {
     if (gameState === "PLAYING") {
         physicsEngine.updatePlayerPhysics(pEntity, deltaTime, bspRoot);
         const canSee = checkLineOfSight(enemy.x, enemy.y, pEntity.x, pEntity.y);
-        enemy.update(pEntity.x, pEntity.y, canSee, aiWorker, walkableCells);
+        enemy.update(pEntity.x, pEntity.y, canSee, aiWorker, walkableCells, physicsEngine, bspRoot);
 
         // KAYBETME KONTROLÜ (Düşman ile Oyuncu Çarpışması)
         // Oyuncu kutusu ile düşman dairesi arası mesafe kontrolü
