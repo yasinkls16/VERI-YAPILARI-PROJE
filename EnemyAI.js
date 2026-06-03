@@ -1,6 +1,10 @@
 // src/EnemyAI.js
 
 class EnemyAI {
+    constructor(id, startX, startY) {
+        this.yasinconstructor(id, startX, startY);
+    }
+
     yasinconstructor(id, startX, startY) {
         this.id = id;
         this.x = startX;
@@ -9,6 +13,10 @@ class EnemyAI {
         this.path = []; 
         this.isWaitingForWorker = false;
         this.lastPathRequestTime = 0;
+    }
+
+    update(playerX, playerY, canSeePlayer, walkableCells, physicsEngine, bspRoot) {
+        this.yasinupdate(playerX, playerY, canSeePlayer, walkableCells, physicsEngine, bspRoot);
     }
 
     yasinupdate(playerX, playerY, canSeePlayer, walkableCells, physicsEngine, bspRoot) {
