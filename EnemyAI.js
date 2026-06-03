@@ -142,7 +142,11 @@ class EnemyAI {
         const myGridX = Math.floor(this.x / CELL_SIZE);
         const myGridY = Math.floor(this.y / CELL_SIZE);
 
-        fetch("http://localhost:8000/calculate-path", {
+        const apiBase = (window.location.port === "8000" || window.location.port === "" || window.location.port === "80") 
+            ? "" 
+            : "http://localhost:8000";
+
+        fetch(`${apiBase}/calculate-path`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
