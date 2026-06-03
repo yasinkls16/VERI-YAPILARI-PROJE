@@ -1,8 +1,14 @@
 # Python
 __pycache__/
+pycache/
+**/__pycache__/
 *.py[cod]
 *$py.class
 venv/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
 .env
 .env.*
 
@@ -18,6 +24,8 @@ pnpm-debug.log*
 .idea/
 *.sublime-project
 *.sublime-workspace
+*~
+*.swp
 
 # OS
 .DS_Store
@@ -32,3 +40,4 @@ docker-compose.override.yml
 # Build artifacts
 dist/
 build/
+
