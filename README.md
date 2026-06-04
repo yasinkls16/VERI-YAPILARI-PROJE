@@ -25,6 +25,7 @@
 1. [Sistem Akış Diyagramı](#8-sistem-akış-diyagramı)
 1. [Optimizasyonlar ve Tasarım Kararları](#9-optimizasyonlar-ve-tasarım-kararları)
 1. [Modül Sorumlulukları Özeti](#10-modül-sorumlulukları-özeti)
+1. [Uygulama Kurulum Rehberi ve Çalışma Gösterimi](#11-uygulama-kurulum-rehberi-ve-çalışma-gösterimi)
 
 -----
 
@@ -671,6 +672,7 @@ Geliştirilen mikroservis mimarisinin ve ilgili bağımlılık paketlerinin izol
 4. **Konteynerlerin İnşa Edilmesi ve Başlatılması:** İlgili servis imajlarının sıfırdan inşa edilmesi (build) ve konteynerlerin ayağa kaldırılması için aşağıdaki komut yürütülmelidir:
    ```bash
    docker-compose up --build
+5. **Yerel Sunucu Erişimi:** Konteynerizasyon süreci başarıyla tamamlandıktan sonra, uygulamaya yerel sunucu üzerinden erişim sağlamak için tarayıcı adres çubuğuna http://localhost:80 protokolü girilmelidir.
 
 ### 11.2 Oyun Mekanikleri ve Oynanış Gösterimi
 Geliştirilen uygulamanın temel oynanış dinamiklerini, kullanıcı arayüzü etkileşimlerini ve düşman karakterlerin oyuncuyu tespit edip yakalama senaryolarını içeren uygulama gösterim videosu aşağıda yer almaktadır:
