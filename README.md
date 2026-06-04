@@ -659,3 +659,56 @@ if (Math.abs(dir[0]) === 1 && Math.abs(dir[1]) === 1) {
 |`vision.js`       |Raycasting FOV hesaplama ve çizimi  |BspTree      |
 |`game.js`         |Ana döngü, koordinatör              |Hepsi        |
 |`index.html`      |Giriş noktası, canvas, UI           |game.js      |
+
+
+## 11. Uygulama Kurulum Rehberi ve Çalışma Gösterimi
+### 11.1 Sistemin Docker Konteyner Ortamında Koşturulması
+Geliştirilen mikroservis mimarisinin ve ilgili bağımlılık paketlerinin izole bir ekosistemde, platform bağımsız çalışabilmesi amacıyla Docker entegrasyonu gerçekleştirilmiştir. Çalıştırma sürecini başlatmak için aşağıdaki adımların sırasıyla uygulanması gerekmektedir:
+
+1. **Kaynak Kodların Yerel Ortama Aktarılması:** Projenin ve Docker konfigürasyon dosyalarının en güncel sürümünün yerel dizine konumlandırıldığından (ilgili Git branch'inin kontrol edildiğinden) emin olunmalıdır.
+2. **Docker Servis Kontrolü:** Sistemde **Docker Desktop** servisinin aktif ve çalışır durumda (Engine Running) olduğu doğrulanmalıdır.
+3. **Uçbirim Erişimi:** Proje kök dizini (root directory) üzerinde bir uçbirim (Terminal / Komut İstemi) oturumu açılmalıdır.
+4. **Konteynerlerin İnşa Edilmesi ve Başlatılması:** İlgili servis imajlarının sıfırdan inşa edilmesi (build) ve konteynerlerin ayağa kaldırılması için aşağıdaki komut yürütülmelidir:
+   ```bash
+   docker-compose up --build
+
+### 11.2 Oyun Mekanikleri ve Oynanış Gösterimi
+Geliştirilen uygulamanın temel oynanış dinamiklerini, kullanıcı arayüzü etkileşimlerini ve düşman karakterlerin oyuncuyu tespit edip yakalama senaryolarını içeren uygulama gösterim videosu aşağıda yer almaktadır:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
