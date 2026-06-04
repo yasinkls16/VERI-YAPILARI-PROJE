@@ -1,6 +1,6 @@
 # 2D BSP Stealth Game — Teknik Dokümantasyon
 
-----
+-----
 
 ## Geliştirici Ekibi
 | Rol | İsim |
@@ -12,6 +12,8 @@
 | **Oyun Motoru ve Fizik** — HTML5 Canvas ve Çarpışma | Ayşegül Karataş |
 
 -----
+**oynanış videosu gösterimi**
+https://drive.google.com/file/d/18_l5oEgmHgxke-A2KQIdvDcuMLvRWqE3/view?usp=sharing 
 
 ## İçindekiler
 
@@ -25,7 +27,6 @@
 1. [Sistem Akış Diyagramı](#8-sistem-akış-diyagramı)
 1. [Optimizasyonlar ve Tasarım Kararları](#9-optimizasyonlar-ve-tasarım-kararları)
 1. [Modül Sorumlulukları Özeti](#10-modül-sorumlulukları-özeti)
-1. [Uygulama Kurulum Rehberi ve Çalışma Gösterimi](#11-uygulama-kurulum-rehberi-ve-çalışma-gösterimi)
 
 -----
 
@@ -34,10 +35,11 @@
 Bu proje, klasik DOOM-dönem mimarisinden ilham alan, 2D tarayıcı tabanlı bir gizlilik (stealth) oyunudur. Temel teknik hedefler:
 
 - **BSP Ağacı** ile uzamsal bölümleme ve O(log n) duvar sorgulaması
-- **A* Algoritması** ile Web Worker üzerinde asenkron yol bulma
+- **A* Algoritması** ile Python FastAPI servisi üzerinden asenkron yol bulma
 - **AABB Çarpışma Algılama** ile fizik motoru entegrasyonu
 - **Raycasting tabanlı Görüş Alanı (FOV)** hesaplama
 - **Durum Makinesi (State Machine)** tabanlı düşman yapay zekası
+- **Prosedürel harita üretimi** DFS (Depth-First Search) algoritması ile
 
 -----
 
@@ -62,20 +64,19 @@ Bu proje, klasik DOOM-dönem mimarisinden ilham alan, 2D tarayıcı tabanlı bir
                   │ updatePlayerPhysics()
      ┌────────────▼──────────────┐
      │         player.js         │
-     │   Player extends          │
-     │   PhysicalEntity          │
+     │   Player                  │
      └────────────┬──────────────┘
                   │
      ┌────────────▼──────────────┐        ┌──────────────────────┐
      │          game.js          │◄───────►│    EnemyAI.js        │
      │     Ana Oyun Döngüsü      │         │  EnemyAI (State      │
-     │     requestAnimationFrame  │         │  Machine + A* req.)  │
+     │     requestAnimationFrame  │         │  Machine + HTTP req.) │
      └───────────────────────────┘         └──────────┬───────────┘
-                                                       │ postMessage()
+                                                       │ fetch() POST
                                            ┌───────────▼───────────┐
-                                           │    astarWorker.js      │
-                                           │  MinHeap, Graph, Node  │
-                                           │  A* Pathfinding        │
+                                           │      main.py           │
+                                           │  FastAPI A* Servisi    │
+                                           │  /calculate-path       │
                                            └───────────────────────┘
 ```
 
@@ -83,57 +84,9 @@ Bu proje, klasik DOOM-dönem mimarisinden ilham alan, 2D tarayıcı tabanlı bir
 
 ## 3. UML Sınıf Diyagramları
 
-### 3.1 Tam Sınıf Hiyerarşisi
+### 3.1 JavaScript Sınıfları — BspTree.js
 
 ```
-┌──────────────────────────────────────┐
-│           PhysicalEntity             │
-├──────────────────────────────────────┤
-│ + x: number                          │
-│ + y: number                          │
-│ + vx: number                         │
-│ + vy: number                         │
-│ + ax: number                         │
-│ + ay: number                         │
-│ + friction: number = 0.82            │
-│ + maxSpeed: number = 6               │
-│ + width: number = 20                 │
-│ + height: number = 20                │
-├──────────────────────────────────────┤
-│ + constructor(startX, startY)        │
-└──────────────┬───────────────────────┘
-               │ extends (kalıtım)
-               ▼
-┌──────────────────────────────────────┐
-│               Player                 │
-├──────────────────────────────────────┤
-│  (inherited fields from              │
-│   PhysicalEntity)                    │
-├──────────────────────────────────────┤
-│ + constructor(startX, startY)        │
-│ + draw(ctx: CanvasContext): void     │
-└──────────────────────────────────────┘
-
-
-┌──────────────────────────────────────┐
-│           PhysicsEngine              │
-├──────────────────────────────────────┤
-│ + keys: { ArrowUp, ArrowDown,        │
-│           ArrowLeft, ArrowRight,     │
-│           w, s, a, d }: boolean      │
-├──────────────────────────────────────┤
-│ + constructor()                      │
-│ + initInputListeners(): void         │
-│ + pixelToGrid(px, py): {x,y}        │
-│ + gridToPixel(gx, gy): {x,y}        │
-│ + applyKeyboardInput(char): void     │
-│ + updatePlayerPhysics(char,          │
-│     deltaTime, bspRootNode): void    │
-│ + checkCollisionWithWalls(           │
-│     nextX, nextY, walls[]): boolean  │
-└──────────────────────────────────────┘
-
-
 ┌──────────────────────────────────────┐
 │               Wall                   │
 ├──────────────────────────────────────┤
@@ -144,101 +97,282 @@ Bu proje, klasik DOOM-dönem mimarisinden ilham alan, 2D tarayıcı tabanlı bir
 ├──────────────────────────────────────┤
 │ + constructor(x1, y1, x2, y2)        │
 └──────────────────────────────────────┘
-
+                  △
+                  │ kullanır (duvar nesnesi)
+                  │
 ┌──────────────────────────────────────────────────────┐
 │                     BSPNode                           │
 ├──────────────────────────────────────────────────────┤
 │ + partitionLine: Wall | null                          │
-│ + front: BSPNode | null                              │
-│ + back: BSPNode | null                               │
-│ + walls: Wall[]                                       │
+│ + front: BSPNode | null                               │
+│ + back: BSPNode | null                                │
+│ + walls: Wall[]   ← kolineer duvarlar                 │
 ├──────────────────────────────────────────────────────┤
 │ + constructor(walls: Wall[])                          │
 │ + buildTree(walls: Wall[]): void                      │
-│ + classifyPoint(line, x, y): string                   │
+│ + classifyPoint(line: Wall,                           │
+│     x: number, y: number): string                     │
 │   → "FRONT" | "BACK" | "COLLINEAR"                   │
-│ + classifyWall(line, wall): string                    │
+│ + classifyWall(line: Wall,                            │
+│     wall: Wall): string                               │
 │   → "FRONT" | "BACK" | "COLLINEAR" | "SPANNING"      │
-│ + getIntersection(line1, line2): {x,y} | null        │
-│ + getRelevantWalls(targetX, targetY): Wall[]          │
+│ + getIntersection(line1: Wall,                        │
+│     line2: Wall): {x, y} | null                       │
+│ + getRelevantWalls(                                   │
+│     targetX: number,                                  │
+│     targetY: number): Wall[]                          │
 └──────────────────────────────────────────────────────┘
-         BSPNode "front / back" ──────► BSPNode (özyinelemeli)
+   BSPNode.front ──────► BSPNode  (özyinelemeli)
+   BSPNode.back  ──────► BSPNode  (özyinelemeli)
 
+── Modül dışa aktarım ──────────────────────────────────
+  getDeveloperInfo(): string  → "suha_tufekci"
+  module.exports = { Wall, BSPNode }
+```
 
-┌──────────────────────────────────────────────────────┐
-│                    EnemyAI                            │
-├──────────────────────────────────────────────────────┤
-│ + id: string                                          │
-│ + x: number                                           │
-│ + y: number                                           │
-│ + state: "WANDER" | "CHASE"                          │
-│ + path: [number, number][]                            │
-│ + isWaitingForWorker: boolean                         │
-│ + lastPathRequestTime: number                         │
-│ + pathRequestCooldown: number = 500                   │
-├──────────────────────────────────────────────────────┤
-│ + constructor(id, startX, startY)                     │
-│ + update(playerX, playerY, canSeePlayer,              │
-│           aiWorker, walkableCells): void              │
-│ + changeState(newState): void                         │
-│ + getRandomWalkableCoords(cells): [row,col]           │
-│ + requestPath(worker, targetCoords): void             │
-│ + receivePath(calculatedPath): void                   │
-│ + moveAlongPath(): void                               │
-└──────────────────────────────────────────────────────┘
+### 3.2 JavaScript Sınıfları — PhysicsEngine.js
 
-
+```
 ┌──────────────────────────────────────┐
-│           VisionSystem               │
-├──────────────────────────────────────┤
-│ + bspTree: BSPNode                   │
-├──────────────────────────────────────┤
-│ + constructor(bspTree)               │
-│ + getIntersection(ray, wall)         │
-│   : {x,y,dist,angle} | null         │
-│ + calculateFOV(enemyX, enemyY)       │
-│   : point[]                          │
-│ + draw(ctx, enemyX, enemyY,          │
-│         polygonPoints): void         │
-└──────────────────────────────────────┘
-
-
-── astarWorker.js (Web Worker — ayrı thread) ──────────────────────
-
-┌──────────────────────────────────────┐
-│              MinHeap                 │
-├──────────────────────────────────────┤
-│ + heap: Node[]                       │
-├──────────────────────────────────────┤
-│ + push(node): void                   │
-│ + pop(): Node | null                 │
-│ + bubbleUp(): void                   │
-│ + bubbleDown(): void                 │
-│ + size(): number                     │
-└──────────────────────────────────────┘
-
-┌──────────────────────────────────────┐
-│               Node                   │
+│           PhysicalEntity             │
 ├──────────────────────────────────────┤
 │ + x: number                          │
 │ + y: number                          │
-│ + g: number  (gerçek maliyet)        │
-│ + h: number  (tahmin maliyet)        │
-│ + f: number  (g + h)                 │
-│ + parent: Node | null                │
+│ + vx: number = 0  (x hızı)           │
+│ + vy: number = 0  (y hızı)           │
+│ + ax: number = 0  (x ivmesi)         │
+│ + ay: number = 0  (y ivmesi)         │
+│ + friction: number = 0.82            │
+│ + maxSpeed: number = 6               │
+│ + width: number = 20                 │
+│ + height: number = 20                │
 ├──────────────────────────────────────┤
-│ + constructor(x, y)                  │
+│ + constructor(startX, startY)        │
 └──────────────────────────────────────┘
 
+
 ┌──────────────────────────────────────┐
-│               Graph                  │
+│           PhysicsEngine              │
 ├──────────────────────────────────────┤
-│ + nodes: Map<string, Neighbor[]>     │
+│ + keys: {                            │
+│     ArrowUp: boolean,                │
+│     ArrowDown: boolean,              │
+│     ArrowLeft: boolean,              │
+│     ArrowRight: boolean,             │
+│     w: boolean, s: boolean,          │
+│     a: boolean, d: boolean           │
+│   }                                  │
 ├──────────────────────────────────────┤
-│ + constructor(grid)                  │
-│ + buildGraph(grid): void             │
-│ + getNeighbors(x, y): Neighbor[]     │
+│ + constructor()                      │
+│ + initInputListeners(): void         │
+│   (window keydown / keyup dinler)    │
+│ + pixelToGrid(pixelX, pixelY)        │
+│   : {x: number, y: number}           │
+│ + gridToPixel(gridX, gridY)          │
+│   : {x: number, y: number}           │
+│ + applyKeyboardInput(                │
+│     character: PhysicalEntity): void │
+│ + updatePlayerPhysics(               │
+│     character: PhysicalEntity,       │
+│     deltaTime: number,               │
+│     bspRootNode: BSPNode): void      │
+│   → ivme, hız, BSP sorgusu,          │
+│     AABB çarpışma, wall sliding       │
+│ + checkCollisionWithWalls(           │
+│     nextX: number,                   │
+│     nextY: number,                   │
+│     walls: Wall[]): boolean          │
+│   → dikey/yatay duvar AABB testi     │
 └──────────────────────────────────────┘
+
+── Modül dışa aktarım ──────────────────────────────────
+  module.exports = { PhysicsEngine, PhysicalEntity }
+```
+
+### 3.3 JavaScript Sınıfı — player.js
+
+```
+┌──────────────────────────────────────┐
+│               Player                 │
+├──────────────────────────────────────┤
+│ + x: number                          │
+│ + y: number                          │
+│ + speed: number = 5                  │
+│ + radius: number = 15                │
+│ + keys: {}  (tuş durumları)          │
+├──────────────────────────────────────┤
+│ + constructor(x: number, y: number)  │
+│   (keydown / keyup event dinler)     │
+│ + update(): void                     │
+│   → WASD / Ok tuşu hareketi          │
+│   → ekran sınırı kontrolü (800×600)  │
+│ + draw(ctx: CanvasContext): void     │
+│   → mavi daire (#3498db, r=15)       │
+└──────────────────────────────────────┘
+
+NOT: player.js bağımsız bir sınıftır.
+PhysicsEngine.js'deki PhysicalEntity ile
+kalıtım ilişkisi YOKTUR. game.js içinde
+pEntity = new PhysicalEntity(45, 45)
+olarak ayrıca örneklenir.
+```
+
+### 3.4 JavaScript Sınıfı — EnemyAI.js
+
+```
+┌──────────────────────────────────────────────────────┐
+│                    EnemyAI                            │
+├──────────────────────────────────────────────────────┤
+│ + id: number                                          │
+│ + x: number                                           │
+│ + y: number                                           │
+│ + state: "WANDER" | "CHASE"                           │
+│ + path: [row, col][]                                  │
+│ + isWaitingForWorker: boolean = false                 │
+│ + lastPathRequestTime: number = 0                     │
+├──────────────────────────────────────────────────────┤
+│ + yasinconstructor(                                   │
+│     id, startX, startY)                               │
+│                                                       │
+│ + yasinupdate(                                        │
+│     playerX: number,                                  │
+│     playerY: number,                                  │
+│     canSeePlayer: boolean,                            │
+│     walkableCells: [row,col][],                       │
+│     physicsEngine: PhysicsEngine,                     │
+│     bspRoot: BSPNode): void                           │
+│   → durum geçişi, yakın takip (dist<80),              │
+│     rota isteme, fiziksel hareket                     │
+│                                                       │
+│ + yasinMoveAlongPath(                                 │
+│     physicsEngine: PhysicsEngine,                     │
+│     bspRoot: BSPNode): void                           │
+│   → hız=7.5, tolerans=12px, wall sliding              │
+│                                                       │
+│ + yasinchangeState(newState: string): void            │
+│   → state değiştir + console.log                      │
+│                                                       │
+│ + yasingetRandomWalkableCoords(                       │
+│     walkableCells: [row,col][]): [row, col]           │
+│                                                       │
+│ + yasinrequestPath(                                   │
+│     targetCoords: [row, col]): void                   │
+│   → 500ms cooldown, fetch POST /calculate-path        │
+│                                                       │
+│ + yasinreceivePath(                                   │
+│     calculatedPath: [row,col][]): void                │
+│   → path[0] (mevcut hücre) atılır, path güncellenir  │
+└──────────────────────────────────────────────────────┘
+```
+
+### 3.5 JavaScript Sınıfı — vision.js
+
+```
+┌──────────────────────────────────────────────────────┐
+│                  VisionSystem                         │
+├──────────────────────────────────────────────────────┤
+│ + bspTree: BSPNode                                    │
+├──────────────────────────────────────────────────────┤
+│ + constructor(bspTree: BSPNode)                       │
+│                                                       │
+│ + getIntersection(                                    │
+│     ray: {x, y, angle},                               │
+│     wall: Wall)                                       │
+│   : {x, y, dist, angle} | null                        │
+│   → parametrik kesişim hesabı                         │
+│                                                       │
+│ + calculateFOV(                                       │
+│     enemyX: number,                                   │
+│     enemyY: number): point[]                          │
+│   → BSP'den duvar al, her köşeye                      │
+│     3 ışın (angle-ε, angle, angle+ε),                 │
+│     açıya göre sırala                                 │
+│                                                       │
+│ + draw(                                               │
+│     ctx: CanvasContext,                               │
+│     enemyX: number,                                   │
+│     enemyY: number,                                   │
+│     polygonPoints: point[]): void                     │
+│   → sarı transparan FOV üçgenleri çiz                │
+└──────────────────────────────────────────────────────┘
+```
+
+### 3.6 Python Sınıfları — main.py (FastAPI)
+
+```
+── main.py (Python FastAPI — localhost:8000) ───────────────────────
+
+┌──────────────────────────────────────────┐
+│         PathRequest  (Pydantic Model)    │
+├──────────────────────────────────────────┤
+│ + id: int                                │
+│ + startCoords: list[int]  [row, col]     │
+│ + targetCoords: list[int] [row, col]     │
+│ + grid: list[list[int]]                  │
+└──────────────────────────────────────────┘
+
+┌──────────────────────────────────────────┐
+│      FastAPI Uygulama Fonksiyonları      │
+├──────────────────────────────────────────┤
+│ + yasinheuristic(                        │
+│     node: tuple,                         │
+│     target: tuple): float                │
+│   → Chebyshev Distance                   │
+│   → (dx+dy) + (√2-2) × min(dx,dy)       │
+│                                          │
+│ + yasinget_neighbors(                    │
+│     x: int, y: int,                      │
+│     grid: list[list[int]])               │
+│   : list[tuple(nx, ny, cost)]            │
+│   → 8 yön, sınır + duvar kontrolü,       │
+│     corner-cutting engeli,               │
+│     çapraz: √2, düz: 1.0                 │
+│                                          │
+│ @app.post("/calculate-path")             │
+│ + yasincalculate_path(                   │
+│     req: PathRequest)                    │
+│   : {"id": int, "path": list[list[int]]} │
+│   → heapq MinHeap A*, came_from takibi,  │
+│     yol bulunamazsa path=[]              │
+└──────────────────────────────────────────┘
+
+── CORS Ayarları ───────────────────────────────────────
+  allow_origins=["*"]   (tarayıcıdan erişim için)
+  allow_methods=["*"]
+  allow_headers=["*"]
+```
+
+### 3.7 game.js — Global Değişkenler ve Fonksiyonlar
+
+```
+── game.js (Ana Koordinatör) ───────────────────────────
+
+Global Değişkenler:
+  gameGrid: number[][]          ← DFS harita matrisi
+  walkableCells: [row,col][]    ← yürünebilir hücreler
+  mapWalls: Wall[]              ← tüm kenar duvarları
+  bspRoot: BSPNode | null       ← BSP kök düğümü
+  visionSystem: VisionSystem    ← FOV sistemi
+  physicsEngine: PhysicsEngine  ← fizik motoru
+  pEntity: PhysicalEntity       ← oyuncu fizik nesnesi
+  enemy: EnemyAI                ← tek düşman (id=1)
+  gameState: "START"|"PLAYING"|"GAMEOVER"|"WIN"
+  score: number
+  winZone: {x, y, width, height} ← (23×32, 17×32)
+
+Fonksiyonlar:
+  + yigitgenerateRandomGrid(rows, cols): number[][]
+    → DFS maze carving, 20 ekstra açık hücre
+  + yigitinitLevel(): void
+    → grid üret, duvarları çıkar, BSP inşa et
+  + yigitresetGame(): void
+    → seviyeyi sıfırla, oyuncuyu (45,45)'e koy
+  + yigitshowMenu(title, btn, color): void
+  + yigitcheckLineOfSight(ex,ey,px,py): boolean
+    → BSP + VisionSystem ile LoS testi, mesafe≤300
+  + yigitgameLoop(timestamp): void
+    → deltaTime, fizik, enemy, çarpışma,
+      kazanma/kaybetme, canvas çizimi, FPS sayacı
 ```
 
 -----
@@ -248,91 +382,184 @@ Bu proje, klasik DOOM-dönem mimarisinden ilham alan, 2D tarayıcı tabanlı bir
 ### 4.1 Oyun Döngüsü — Tek Frame Akışı
 
 ```
-Tarayıcı          game.js          PhysicsEngine       BSPNode          Canvas
-   │                 │                   │                  │               │
-   │─requestAnimFrame►│                   │                  │               │
-   │                 │                   │                  │               │
-   │                 │──updatePlayer─────►│                  │               │
-   │                 │    Physics()       │                  │               │
-   │                 │                   │──applyKeyboard──►│               │
-   │                 │                   │    Input()        │               │
-   │                 │                   │                  │               │
-   │                 │                   │──getRelevant─────►│               │
-   │                 │                   │   Walls(nextX,Y)  │               │
-   │                 │                   │◄─walls[]──────────│               │
-   │                 │                   │                  │               │
-   │                 │                   │──checkCollision──►│               │
-   │                 │                   │   WithWalls()     │               │
-   │                 │                   │◄─ true/false ─────│               │
-   │                 │                   │                  │               │
-   │                 │◄──────────────────│                  │               │
-   │                 │                   │                  │               │
-   │                 │──drawMap()────────────────────────────────────────►  │
-   │                 │──player.draw()────────────────────────────────────►  │
-   │                 │                   │                  │               │
-   │◄────────────────│                   │                  │               │
-   │  requestAnim    │                   │                  │               │
-   │  Frame()        │                   │                  │               │
+Tarayıcı       game.js      PhysicsEngine    BSPNode       Canvas
+   │              │                │              │             │
+   │─requestAnim──►│                │              │             │
+   │  Frame()      │                │              │             │
+   │              │                │              │             │
+   │              │─updatePlayer───►│              │             │
+   │              │  Physics(       │              │             │
+   │              │  pEntity,       │              │             │
+   │              │  deltaTime,     │              │             │
+   │              │  bspRoot)       │              │             │
+   │              │                │              │             │
+   │              │                │─applyKey────►│             │
+   │              │                │  boardInput() │             │
+   │              │                │              │             │
+   │              │                │─getRelevant──►│             │
+   │              │                │  Walls(nextX, │             │
+   │              │                │  nextY)       │             │
+   │              │                │◄─Wall[]───────│             │
+   │              │                │              │             │
+   │              │                │─checkCollision►│             │
+   │              │                │  WithWalls()  │             │
+   │              │                │◄─boolean──────│             │
+   │              │                │              │             │
+   │              │                │ [wall sliding │             │
+   │              │                │  veya hareket]│             │
+   │              │◄───────────────│              │             │
+   │              │                │              │             │
+   │              │─yigitcheck─────────────────────────────────►│
+   │              │  LineOfSight() │              │             │
+   │              │◄─boolean───────────────────────────────────│
+   │              │                │              │             │
+   │              │─enemy.yasin───►│              │             │
+   │              │  update()      │              │             │
+   │              │◄───────────────│              │             │
+   │              │                │              │             │
+   │              │─drawMap()──────────────────────────────────►│
+   │              │─enemy draw─────────────────────────────────►│
+   │              │─pEntity draw───────────────────────────────►│
+   │              │─FPS / skor─────────────────────────────────►│
+   │              │                │              │             │
+   │◄─────────────│                │              │             │
+   │ requestAnim  │                │              │             │
+   │ Frame()      │                │              │             │
 ```
 
-### 4.2 EnemyAI — A* Yol Bulma Asenkron Akışı
+### 4.2 EnemyAI — A* Yol Bulma HTTP Akışı
 
 ```
-game.js         EnemyAI          astarWorker.js        EnemyAI
-   │               │                    │                 │
-   │──update()────►│                    │                 │
-   │               │                    │                 │
-   │               │ canSeePlayer=true  │                 │
-   │               │──changeState──────►│                 │
-   │               │  ("CHASE")         │                 │
-   │               │                    │                 │
-   │               │──requestPath()     │                 │
-   │               │──postMessage({─────►                 │
-   │               │   type:'path',     │                 │
-   │               │   startCoords,     │                 │
-   │               │   targetCoords     │                 │
-   │               │  })                │                 │
-   │               │                    │                 │
-   │               │   isWaiting=true   │                 │
-   │               │                    │                 │
-   │               │                    │──aStar()──────► │
-   │               │                    │  [hesaplama]    │
-   │               │                    │                 │
-   │               │                    │◄─path[]─────────│
-   │               │◄──postMessage({────│                 │
-   │               │   enemyId, path    │                 │
-   │               │  })                │                 │
-   │               │                    │                 │
-   │               │──receivePath()     │                 │
-   │               │   isWaiting=false  │                 │
-   │               │   this.path=path   │                 │
-   │               │                    │                 │
-   │               │──moveAlongPath()   │                 │
-   │◄──────────────│                    │                 │
+game.js       EnemyAI        main.py (FastAPI)
+   │              │                  │
+   │─yasinupdate─►│                  │
+   │  (playerX,Y, │                  │
+   │   canSee,    │                  │
+   │   cells,     │                  │
+   │   physics,   │                  │
+   │   bspRoot)   │                  │
+   │              │                  │
+   │              │ [canSeePlayer    │
+   │              │  && dist >= 80]  │
+   │              │─yasinchangeState─►
+   │              │  ("CHASE")       │
+   │              │                  │
+   │              │ [cooldown OK &&  │
+   │              │  !isWaiting]     │
+   │              │─yasinrequestPath─►
+   │              │  (playerGridCoords)
+   │              │                  │
+   │              │─fetch POST───────►│
+   │              │  /calculate-path  │
+   │              │  {id, start,      │
+   │              │   target, grid}   │
+   │              │                  │
+   │              │ isWaiting=true   │
+   │              │                  │
+   │              │                  │ yasincalculate_path()
+   │              │                  │ heapq A* çalışır
+   │              │                  │
+   │              │◄─JSON response───│
+   │              │  {id, path:[]}   │
+   │              │                  │
+   │              │─yasinreceivePath─►
+   │              │  path[0].shift() │
+   │              │  isWaiting=false │
+   │              │                  │
+   │              │─yasinMoveAlong───►
+   │              │  Path(physics,   │
+   │              │  bspRoot)        │
+   │◄─────────────│                  │
 ```
 
-### 4.3 VisionSystem — FOV Hesaplama
+### 4.3 EnemyAI — Yakın Mesafe Doğrudan Takip (dist < 80)
 
 ```
-game.js          EnemyAI         VisionSystem          BSPNode
-   │               │                  │                    │
-   │──(her frame)──►│                  │                    │
-   │               │──calculateFOV────►│                    │
-   │               │  (enemyX,enemyY)  │                    │
-   │               │                  │──getRelevant───────►│
-   │               │                  │   Walls(ex, ey)     │
-   │               │                  │◄──walls[]───────────│
-   │               │                  │                    │
-   │               │                  │ [her duvar köşesi   │
-   │               │                  │  için 3 ışın gönder]│
-   │               │                  │──getIntersection()  │
-   │               │                  │  (ray, wall)        │
-   │               │                  │──sort by angle      │
-   │               │◄─polygonPoints[]─│                    │
-   │               │                  │                    │
-   │               │──draw(ctx,       │                    │
-   │               │   polygon)       │                    │
-   │◄──────────────│                  │                    │
+game.js       EnemyAI        PhysicsEngine    BSPNode
+   │              │                │              │
+   │─yasinupdate─►│                │              │
+   │              │                │              │
+   │              │ [state=CHASE   │              │
+   │              │  canSee=true   │              │
+   │              │  dist < 80]    │              │
+   │              │                │              │
+   │              │ normalize vektör hesabı        │
+   │              │ nextX, nextY (speed=6.5)       │
+   │              │                │              │
+   │              │─getRelevant────────────────────►│
+   │              │  Walls(nextX,Y)│              │
+   │              │◄─Wall[]─────────────────────────│
+   │              │                │              │
+   │              │─checkCollision─►│              │
+   │              │  WithWalls()   │              │
+   │              │◄─boolean───────│              │
+   │              │                │              │
+   │              │ [false] → x=nextX, y=nextY    │
+   │              │ [true]  → wall sliding testi  │
+   │              │   canMoveX? → x=nextX         │
+   │              │   canMoveY? → y=nextY         │
+   │◄─────────────│                │              │
+```
+
+### 4.4 VisionSystem — FOV Hesaplama
+
+```
+game.js       EnemyAI       VisionSystem        BSPNode
+   │              │                │                │
+   │─(her frame)──►│                │                │
+   │              │                │                │
+   │              │─calculateFOV───►│                │
+   │              │  (enemyX,       │                │
+   │              │   enemyY)       │                │
+   │              │                │─getRelevant────►│
+   │              │                │  Walls(ex, ey)  │
+   │              │                │◄─Wall[]─────────│
+   │              │                │                │
+   │              │                │ [her duvar için]│
+   │              │                │ 3 köşe açısı    │
+   │              │                │ (a-ε, a, a+ε)   │
+   │              │                │─getIntersection─►
+   │              │                │  (ray, wall)    │
+   │              │                │                │
+   │              │                │ sort by angle   │
+   │              │◄─point[]───────│                │
+   │              │                │                │
+   │              │─draw(ctx,      │                │
+   │              │  ex, ey,       │                │
+   │              │  points)       │                │
+   │◄─────────────│                │                │
+```
+
+### 4.5 Harita Üretimi ve Seviye Başlatma
+
+```
+Kullanıcı     game.js          yigitinitLevel()     BSPNode
+   │              │                    │                │
+   │─BAŞLAT btn───►│                    │                │
+   │              │─yigitresetGame()───►│                │
+   │              │                    │                │
+   │              │                    │─yigitgenerate──►
+   │              │                    │  RandomGrid()  │
+   │              │                    │  DFS Maze Carve│
+   │              │                    │  19×25 grid    │
+   │              │                    │                │
+   │              │                    │ walkableCells[] toplama
+   │              │                    │                │
+   │              │                    │ gameGrid üzerinden
+   │              │                    │ duvar kenarı tespiti
+   │              │                    │ mapWalls[] doldurma
+   │              │                    │                │
+   │              │                    │─new BSPNode────►│
+   │              │                    │  (mapWalls)    │
+   │              │                    │                │─buildTree()
+   │              │                    │◄───────────────│
+   │              │                    │  bspRoot hazır │
+   │              │                    │                │
+   │              │                    │─new VisionSystem(bspRoot)
+   │              │◄───────────────────│                │
+   │              │  gameState="PLAYING"│               │
+   │◄─────────────│                    │                │
+   │   oyun döngüsü başlar             │                │
 ```
 
 -----
@@ -340,40 +567,65 @@ game.js          EnemyAI         VisionSystem          BSPNode
 ## 5. UML Durum Diyagramı — EnemyAI
 
 ```
-                    ┌─────────────┐
-               ───► │   WANDER    │
-               │    └──────┬──────┘
-               │           │
-               │    canSeePlayer == true
-               │           │
-               │           ▼
-               │    ┌─────────────┐
-               └────│    CHASE    │
-          !canSeePlayer    │
-                    └──────┬──────┘
-                           │
-                   dist < 80 && canSeePlayer
-                           │
-                           ▼
-                  ┌─────────────────────┐
-                  │  DOĞRUDAN TAKİP     │
-                  │  (A* bypass edilir) │
-                  │  dist > 15 → hareket│
-                  └─────────────────────┘
+                         [Oyun Başlangıcı]
+                                │
+                                ▼
+                    ┌───────────────────────┐
+               ┌───►│        WANDER          │
+               │    │  Rastgele hedef seç    │
+               │    │  yasingetRandom        │
+               │    │  WalkableCoords()      │
+               │    │  yasinrequestPath()    │
+               │    │  yasinMoveAlongPath()  │
+               │    └───────────┬───────────┘
+               │                │
+               │        canSeePlayer == true
+               │                │
+               │                ▼
+               │    ┌───────────────────────┐
+               │    │         CHASE          │◄─────────────┐
+               │    │  Her 500ms'de bir      │              │
+               │    │  yasinrequestPath()    │              │
+               │    │  (player konumuna)     │              │
+               │    │  yasinMoveAlongPath()  │              │
+               │    └───────────┬───────────┘              │
+               │                │                          │
+    !canSeePlayer        dist < 80 &&                dist >= 80
+               │          canSeePlayer                      │
+               │                │                          │
+               │                ▼                          │
+               │    ┌───────────────────────┐              │
+               │    │    DOĞRUDAN TAKİP     ├──────────────┘
+               │    │   (CHASE içi dal)     │
+               │    │  A* bypass edilir     │
+               │    │  normalize vektör     │
+               │    │  speed = 6.5          │
+               │    │  dist > 15 → hareket  │
+               │    │  wall sliding aktif   │
+               │    └───────────────────────┘
+               │
+               └──── (WANDER'a dön)
 
 Durum Geçiş Tablosu:
-┌──────────┬─────────────────────────┬──────────┐
-│ Mevcut   │ Koşul                   │ Sonraki  │
-├──────────┼─────────────────────────┼──────────┤
-│ WANDER   │ canSeePlayer == true    │ CHASE    │
-│ CHASE    │ !canSeePlayer           │ WANDER   │
-│ CHASE    │ dist < 80 && görüyor    │ DIRECT   │
-│ DIRECT   │ dist >= 80              │ CHASE    │
-└──────────┴─────────────────────────┴──────────┘
+┌───────────────┬──────────────────────────────┬────────────────┐
+│ Mevcut Durum  │ Koşul                         │ Sonraki Durum  │
+├───────────────┼──────────────────────────────┼────────────────┤
+│ WANDER        │ canSeePlayer == true          │ CHASE          │
+│ CHASE         │ !canSeePlayer                 │ WANDER         │
+│ CHASE         │ canSeePlayer && dist < 80     │ DIRECT (dal)   │
+│ DIRECT (dal)  │ dist >= 80 veya !canSeePlayer │ CHASE          │
+└───────────────┴──────────────────────────────┴────────────────┘
 
-Her durum geçişinde:
-  • path = []          (eski rota sıfırlanır)
-  • isWaitingForWorker = false
+Durum Geçişinde Ne Olur:
+  • yasinchangeState() çağrılır
+  • console.log ile "[Düşman X] Mod Değiştirdi: A -> B" yazdırılır
+  • path[] kasıtlı SİLİNMEZ → eski rota korunur, titreme önlenir
+  • isWaitingForWorker sıfırlanmaz → devam eden HTTP isteği beklenir
+
+Path Yönetimi:
+  WANDER → path bitti + !isWaiting → yeni rastgele rota iste
+  CHASE  → her 500ms → oyuncunun grid konumuna rota iste
+  DIRECT → path tamamen bypass; A* isteği gönderilmez
 ```
 
 -----
@@ -397,6 +649,7 @@ BSPNode(root)
     └── walls = [W1_parça_arka, W2]
 
 SPANNING duvar tespiti → getIntersection() → 2 parçaya bölme
+Parça yerleşimi → classifyPoint(midpoint) ile belirlenir
 ```
 
 **Sınıflandırma Mantığı (Cross Product):**
@@ -409,19 +662,20 @@ cross < -0.001 → BACK
 otherwise      → COLLINEAR
 ```
 
-### 6.2 A* Pathfinding (MinHeap ile)
+### 6.2 A* Pathfinding (Python FastAPI — main.py)
 
 ```
 f(n) = g(n) + h(n)
 
 g(n) = başlangıçtan n'e gerçek maliyet
-       düz hareket: 1.0
+       düz hareket:   1.0
        çapraz hareket: √2 ≈ 1.414
 
 h(n) = Chebyshev Distance (8-yönlü hareket için optimal)
        h = (dx + dy) + (√2 - 2) × min(dx, dy)
 
-MinHeap yapısı: O(log n) push/pop ile f değerine göre sıralı kuyruk
+Python heapq MinHeap: O(log n) push/pop ile f değerine göre sıralı kuyruk
+HTTP POST /calculate-path → JSON yanıt { id, path }
 ```
 
 ### 6.3 AABB Çarpışma Algılama
@@ -442,20 +696,31 @@ Yatay duvar (y1 == y2) kontrolü:
   çarpışma = inXRange && charTop <= wall.y && charBottom >= wall.y
 ```
 
-### 6.4 MinHeap İç Yapısı
+### 6.4 Wall Sliding (Duvar Kaydırma)
+
+Hem `PhysicsEngine` hem de `EnemyAI` duvara çarpıldığında tam durma yerine eksene göre kaydırma uygular:
 
 ```
-Dizi temsili (örnek):
-Index:  0    1    2    3    4
-f:     [1.2, 2.4, 1.8, 3.1, 2.9]
+çarpışma varsa:
+  canMoveX = checkCollision(nextX, this.y, walls)
+  canMoveY = checkCollision(this.x, nextY, walls)
+  if (canMoveX) → sadece X ekseninde hareket et
+  else if (canMoveY) → sadece Y ekseninde hareket et
+  else → path.shift() (tam köşe sıkışması — waypoint atla)
+```
 
-Ebeveyn-çocuk ilişkisi:
-  parent(i)      = floor((i-1) / 2)
-  leftChild(i)   = 2*i + 1
-  rightChild(i)  = 2*i + 2
+### 6.5 Prosedürel Harita Üretimi (DFS Maze Carving)
 
-push → sona ekle → bubbleUp    → O(log n)
-pop  → kökü al  → bubbleDown   → O(log n)
+```
+yigitgenerateRandomGrid(rows=19, cols=25):
+  1. Tüm grid'i 1 (duvar) ile doldur
+  2. yigitcarve(1,1) ile DFS başlat:
+     - Mevcut hücreyi 0 (yürünebilir) yap
+     - 4 yönü karıştır (rastgele)
+     - 2 adım ötedeki komşu hâlâ 1 ise:
+       aradaki hücreyi de aç → rekürsif devam
+  3. 20 adet rastgele hücreyi ekstra aç (açıklık artırma)
+  4. Başlangıç (1,1) ve bitiş (17,23) bölgelerini garantile
 ```
 
 -----
@@ -475,30 +740,30 @@ pop  → kökü al  → bubbleDown   → O(log n)
 
 > **Kritik Optimizasyon:** `getRelevantWalls()` fonksiyonu, oyuncunun bulunduğu tarafı önce arar. Bu sayede PhysicsEngine ve VisionSystem, tüm haritayı taramak yerine yalnızca yakın çevredeki duvarları alır.
 
-### 7.2 A* Pathfinding (astarWorker.js)
+### 7.2 A* Pathfinding (main.py — Python FastAPI)
 
-|İşlem                   |Karmaşıklık   |Açıklama                                               |
-|------------------------|--------------|-------------------------------------------------------|
-|`Graph.buildGraph(grid)`|O(V + E)      |V = yürünebilir hücre sayısı, E = komşuluk bağlantıları|
-|`MinHeap.push()`        |O(log V)      |bubbleUp ile heap özelliği korunur                     |
-|`MinHeap.pop()`         |O(log V)      |bubbleDown ile heap özelliği korunur                   |
-|`aStar()` toplam        |**O(E log V)**|Her kenar için heap işlemi; E ≈ 8V (8-yönlü)           |
-|Yol geri izleme         |O(P)          |P = yol uzunluğu                                       |
+|İşlem                         |Karmaşıklık   |Açıklama                                    |
+|------------------------------|--------------|--------------------------------------------|
+|`yasinget_neighbors()`        |O(8) = O(1)   |8 yön için sabit kontrol sayısı             |
+|`heapq.heappush()`            |O(log V)      |Python MinHeap push                         |
+|`heapq.heappop()`             |O(log V)      |Python MinHeap pop                          |
+|`yasincalculate_path()` toplam|**O(E log V)**|Her kenar için heap işlemi; E ≈ 8V (8-yönlü)|
+|Yol geri izleme               |O(P)          |P = yol uzunluğu (came_from takibi)         |
 
-**Web Worker Avantajı:** A* hesaplaması ana thread’i bloklamaz. UI 60 FPS’de çalışmaya devam eder.
+**HTTP Servis Avantajı:** A* hesaplaması ana thread’i bloklamaz; `fetch()` asenkron çağrıdır. `isWaitingForWorker` bayrağı ile yanıt gelene kadar yeni istek gönderilmez.
 
 ### 7.3 EnemyAI
 
-|İşlem                      |Karmaşıklık  |Açıklama                                                      |
-|---------------------------|-------------|--------------------------------------------------------------|
-|`update()`                 |O(1) amortize|Durum geçişi + path isteği (cooldown ile sınırlı)             |
-|`getRandomWalkableCoords()`|**O(1)**     |Ön belleğe alınmış `walkableCells[]` dizisinden rastgele index|
-|`moveAlongPath()`          |O(1)         |path[0] hedefine doğru hareket; hedefe ulaşınca shift()       |
-|`changeState()`            |O(1)         |Durum değişkeni atama + path temizleme                        |
-|Yakın mesafe takip         |O(1)         |Öklid mesafesi + normalize vektör hareketi                    |
+|İşlem                           |Karmaşıklık  |Açıklama                                                      |
+|--------------------------------|-------------|--------------------------------------------------------------|
+|`yasinupdate()`                 |O(1) amortize|Durum geçişi + path isteği (500ms cooldown ile sınırlı)       |
+|`yasingetRandomWalkableCoords()`|**O(1)**     |Ön belleğe alınmış `walkableCells[]` dizisinden rastgele index|
+|`yasinMoveAlongPath()`          |O(1)         |path[0] hedefine doğru hareket; hedefe ulaşınca shift()       |
+|`yasinchangeState()`            |O(1)         |Durum değişkeni atama + log çıktısı                           |
+|Yakın mesafe takip (dist < 80)  |O(log n)     |BSP sorgusu + normalize vektör hareketi + wall sliding        |
 
 
-> **OPTİMİZASYON:** `getRandomWalkableCoords()`, önceden hesaplanmış `walkableCells` dizisini kullanır. Orijinal O(∞) potansiyelli sonsuz döngü yönteminin yerini O(1) tek indexleme alır.
+> **OPTİMİZASYON:** `yasingetRandomWalkableCoords()`, önceden hesaplanmış `walkableCells` dizisini kullanır. Sonsuz döngü riski taşıyan yöntemlerin yerini O(1) tek indexleme alır.
 
 ### 7.4 VisionSystem (Raycasting FOV)
 
@@ -535,17 +800,18 @@ pop  → kökü al  → bubbleDown   → O(log n)
 │ Fizik + Çarpışma       │ O(log n)                │
 │ FOV Hesaplama          │ O(W²) ≈ O(log²n)        │
 │ Enemy Hareketi         │ O(1) per enemy          │
-│ Çizim (drawMap)        │ O(n)  [tüm duvarlar]    │
+│ Çizim (drawMap)        │ O(n)  [tüm hücreler]    │
 ├────────────────────────┼────────────────────────┤
 │ TOPLAM                 │ O(n) [çizim dominant]   │
 └────────────────────────┴────────────────────────┘
 
-n = toplam duvar sayısı
+n = toplam duvar/hücre sayısı
 W = BSP'den dönen yerel duvar sayısı (W << n)
 
-A* (Web Worker, asenkron — frame'e dahil değil):
+A* (HTTP fetch, asenkron — frame'e dahil değil):
   O(E log V) = O(8V log V) ≈ O(V log V)
   V = yürünebilir hücre sayısı
+  500ms cooldown ile istekler sınırlandırılır
 ```
 
 -----
@@ -558,16 +824,16 @@ A* (Web Worker, asenkron — frame'e dahil değil):
 └──────────────────────────┬──────────────────────────────────┘
                            │
               ┌────────────▼────────────┐
-              │  BSP Ağacı İnşa Et      │
-              │  BSPNode(walls)         │
-              │  O(n log n)             │
+              │  DFS ile Harita Üret    │
+              │  yigitgenerateRandom    │
+              │  Grid(19, 25)           │
+              │  O(rows × cols)         │
               └────────────┬────────────┘
                            │
               ┌────────────▼────────────┐
-              │  Worker'a grid gönder   │
-              │  type: 'init'           │
-              │  Graph.buildGraph()     │
-              │  O(V + E)               │
+              │  BSP Ağacı İnşa Et      │
+              │  BSPNode(mapWalls)      │
+              │  O(n log n)             │
               └────────────┬────────────┘
                            │
               ┌────────────▼────────────┐
@@ -580,7 +846,7 @@ A* (Web Worker, asenkron — frame'e dahil değil):
 ┌─────────▼──────┐ ┌───────▼───────┐ ┌──────────▼──┐ │
 │  Fizik Güncelle│ │ Enemy Update  │ │  Canvas Çiz  │ │
 │  BSP Sorgula   │ │ Durum Makine  │ │  drawMap()   │ │
-│  AABB Çarpışma │ │ + Hareket     │ │  player.draw │ │
+│  AABB Çarpışma │ │ + Wall Slide  │ │  enemy.draw  │ │
 │  O(log n)      │ │ O(1)/enemy    │ │  O(n)        │ │
 └────────────────┘ └───────┬───────┘ └─────────────┘ │
                            │                          │
@@ -590,10 +856,11 @@ A* (Web Worker, asenkron — frame'e dahil değil):
               └─────┬─────────────┬─────┘             │
                     │YES           │NO                 │
          ┌──────────▼──┐          │                   │
-         │ Worker'a    │          │                   │
-         │ postMessage │          │                   │
+         │ fetch POST  │          │                   │
+         │ /calculate- │          │                   │
+         │ path        │          │                   │
          │ A*: O(ElogV)│          │                   │
-         │ (async)     │          │                   │
+         │ (async HTTP)│          │                   │
          └─────────────┘          └───────────────────┘
 ```
 
@@ -615,53 +882,85 @@ let nearby = bspRoot.getRelevantWalls(player.x, player.y); // O(log n)
 nearby.forEach(w => checkCollision(player, w)); // O(W), W << n
 ```
 
-### 9.2 Web Worker ile Asenkron A*
+### 9.2 HTTP Fetch ile Asenkron A* (Python FastAPI)
 
 **Problem:** A* hesaplaması ana thread’i dondurur → frame drop  
-**Çözüm:** `astarWorker.js` ayrı bir thread’de çalışır
+**Çözüm:** `main.py` FastAPI servisi ayrı bir süreçte çalışır; `fetch()` asenkron HTTP çağrısı ile tetiklenir
 
 ```
 Ana Thread:  [Fizik][FOV][Çizim]──────[Fizik][FOV][Çizim]
                                            ↑ 60 FPS korunur
-Worker:                 [A* hesaplama───────►][sonuç geri]
+Python:             [POST isteği─────────────►][JSON yanıt geri]
+```
+
+```javascript
+// EnemyAI.js — yasinrequestPath()
+fetch("http://localhost:8000/calculate-path", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, startCoords, targetCoords, grid })
+})
+.then(res => res.json())
+.then(data => this.yasinreceivePath(data.path));
 ```
 
 ### 9.3 EnemyAI Optimizasyonları
 
-|#|Optimizasyon                  |Yöntem                          |Kazanım                      |
-|-|------------------------------|--------------------------------|-----------------------------|
-|1|Rastgele hedef seçimi         |Ön hesaplanmış `walkableCells[]`|O(∞)→O(1)                    |
-|2|Worker spam önleme            |500ms cooldown timer            |%50 worker yükü azalır       |
-|3|Yakın mesafe bypass           |dist<80 → doğrudan hareket      |A* maliyeti sıfır            |
-|4|Durum geçişinde rota temizleme|`path=[]`, `isWaiting=false`    |Eskimiş rota problemi çözülür|
+|#|Optimizasyon                  |Yöntem                           |Kazanım                         |
+|-|------------------------------|---------------------------------|--------------------------------|
+|1|Rastgele hedef seçimi         |Ön hesaplanmış `walkableCells[]` |O(∞)→O(1)                       |
+|2|HTTP spam önleme              |500ms cooldown timer             |Gereksiz A* istekleri engellenir|
+|3|Yakın mesafe bypass           |dist<80 → doğrudan hareket       |A* maliyeti sıfır               |
+|4|Durum geçişinde titreme önleme|`path=[]` YAPILMAZ (kasıtlı)     |Rota korunur, titreme azalır    |
+|5|Köşe sıkışma çözümü           |path.shift() ile waypoint atlatma|Düşman takılı kalmaz            |
+|6|Waypoint toleransı            |12 piksel yakınlık eşiği         |Hassas merkez arama iptal       |
 
-### 9.4 Corner-Cutting Engeli (A* Graf)
+### 9.4 Corner-Cutting Engeli (A* Graf — Python)
 
 Çapraz harekette köşe sızmasını önleyen ek kontrol:
 
-```javascript
-// Çapraz hareket ise
-if (Math.abs(dir[0]) === 1 && Math.abs(dir[1]) === 1) {
-    if (grid[x][newY] === 1 || grid[newX][y] === 1) continue; // Köşeden sızma engeli
-}
+```python
+# main.py — yasinget_neighbors()
+if abs(d[0]) == 1 and abs(d[1]) == 1:
+    if grid[x][ny] == 1 or grid[nx][y] == 1:
+        continue  # Köşeden sızma engeli
 ```
+
+### 9.5 Wall Sliding (Duvar Kaydırma)
+
+Hem oyuncu hem düşman duvara çarptığında kilitlenmez, eksen bazlı hareket sürdürür:
+
+```javascript
+// PhysicsEngine.js & EnemyAI.js
+const canMoveX = !checkCollisionWithWalls(nextX, this.y, walls);
+const canMoveY = !checkCollisionWithWalls(this.x, nextY, walls);
+if (canMoveX) this.x = nextX;
+else if (canMoveY) this.y = nextY;
+```
+
+### 9.6 Prosedürel Harita ve Skor Sistemi
+
+Her oyun oturumunda `yigitgenerateRandomGrid()` ile farklı bir labirent oluşturulur. Skor sistemi:
+
+- Düşman yakalanması: **-100 puan**
+- Zafer alanına ulaşma: **+100 puan**
 
 -----
 
 ## 10. Modül Sorumlulukları Özeti
 
-|Dosya             |Birincil Sorumluluk                 |Bağımlılıklar|
-|------------------|------------------------------------|-------------|
-|`BspTree.js`      |Uzamsal bölümleme, duvar sorgulaması|—            |
-|`PhysicsEngine.js`|Hareket fiziği, AABB çarpışma       |BspTree      |
-|`player.js`       |Oyuncu varlığı ve çizimi            |PhysicsEngine|
-|`EnemyAI.js`      |Düşman durumu, A* isteği, hareket   |astarWorker  |
-|`astarWorker.js`  |MinHeap A* pathfinding (async)      |—            |
-|`vision.js`       |Raycasting FOV hesaplama ve çizimi  |BspTree      |
-|`game.js`         |Ana döngü, koordinatör              |Hepsi        |
-|`index.html`      |Giriş noktası, canvas, UI           |game.js      |
+|Dosya             |Birincil Sorumluluk                      |Bağımlılıklar         |
+|------------------|-----------------------------------------|----------------------|
+|`BspTree.js`      |Uzamsal bölümleme, duvar sorgulaması     |—                     |
+|`PhysicsEngine.js`|Hareket fiziği, AABB çarpışma, wall slide|BspTree               |
+|`player.js`       |Oyuncu varlığı, tuş takibi ve çizimi     |—                     |
+|`EnemyAI.js`      |Düşman durumu, HTTP A* isteği, hareket   |main.py, PhysicsEngine|
+|`main.py`         |FastAPI A* servisi, MinHeap pathfinding  |—                     |
+|`vision.js`       |Raycasting FOV hesaplama ve çizimi       |BspTree               |
+|`game.js`         |Ana döngü, harita üretimi, koordinatör   |Hepsi                 |
+|`index.html`      |Giriş noktası, canvas, UI menüsü         |game.js               |
 
-
+-----
 ## 11. Uygulama Kurulum Rehberi ve Çalışma Gösterimi
 ### 11.1 Sistemin Docker Konteyner Ortamında Koşturulması
 Geliştirilen mikroservis mimarisinin ve ilgili bağımlılık paketlerinin izole bir ekosistemde, platform bağımsız çalışabilmesi amacıyla Docker entegrasyonu gerçekleştirilmiştir. Çalıştırma sürecini başlatmak için aşağıdaki adımların sırasıyla uygulanması gerekmektedir:
@@ -673,44 +972,5 @@ Geliştirilen mikroservis mimarisinin ve ilgili bağımlılık paketlerinin izol
    ```bash
    docker-compose up --build
 5. **Yerel Sunucu Erişimi:** Konteynerizasyon süreci başarıyla tamamlandıktan sonra, uygulamaya yerel sunucu üzerinden erişim sağlamak için tarayıcı adres çubuğuna http://localhost:80 protokolü girilmelidir.
-
-### 11.2 Oyun Mekanikleri ve Oynanış Gösterimi
-Geliştirilen uygulamanın temel oynanış dinamiklerini, kullanıcı arayüzü etkileşimlerini ve düşman karakterlerin oyuncuyu tespit edip yakalama senaryolarını içeren uygulama gösterim videosu aşağıda yer almaktadır:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
